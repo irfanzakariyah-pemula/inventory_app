@@ -266,7 +266,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       cancelText: 'Batal',
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: ColorScheme.light(
+          colorScheme: Theme.of(ctx).colorScheme.copyWith(
             primary: context.color.primary,
             onSurface: context.color.onSurface,
           ),
@@ -449,8 +449,15 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     children: _kategoriSuggestions.map((kat) {
                       final isSelected = _kategoriCtrl.text == kat;
                       return GestureDetector(
-                        onTap: () =>
-                            setState(() => _kategoriCtrl.text = kat),
+                        onTap: () {
+                          setState(() {
+                            if (_kategoriCtrl.text == kat) {
+                              _kategoriCtrl.text = '';
+                            } else {
+                              _kategoriCtrl.text = kat;
+                            }
+                          });
+                        },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(

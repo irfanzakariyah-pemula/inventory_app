@@ -92,7 +92,10 @@ class AppTheme {
       error:                error,
     ),
     scaffoldBackgroundColor: _lBackground,
-    textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme),
+    textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).apply(
+      bodyColor: _lOnSurface,
+      displayColor: _lOnSurface,
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor:        _lSurface,
       foregroundColor:        _lOnSurface,
@@ -165,7 +168,10 @@ class AppTheme {
       error:                error,
     ),
     scaffoldBackgroundColor: _dBackground,
-    textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+    textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).apply(
+      bodyColor: _dOnSurface,
+      displayColor: _dOnSurface,
+    ),
     appBarTheme: AppBarTheme(
       backgroundColor:        _dSurface,
       foregroundColor:        _dOnSurface,

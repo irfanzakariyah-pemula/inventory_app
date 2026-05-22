@@ -196,7 +196,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
                                 )
                               : null,
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: context.color.surfaceContainer,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -301,7 +301,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
                       ),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: context.color.surfaceContainer,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
@@ -342,7 +342,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
                           color: context.color.onSurfaceVariant.withValues(alpha: 0.7), size: 20),
                     ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: context.color.surfaceContainer,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
@@ -426,7 +426,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white,
+          color: isSelected ? color : context.color.surfaceContainer,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : context.color.outline.withValues(alpha: 0.5),
