@@ -43,6 +43,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   late final TextEditingController _rakCtrl;
   late final TextEditingController _hargaBeliCtrl;
   late final TextEditingController _hargaJualCtrl;
+  late final TextEditingController _satuanCtrl;
 
   // ─── State ──────────────────────────────────────────────────
   DateTime? _expiredDate;
@@ -61,6 +62,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     'Sembako', 'Kebersihan', 'Kosmetik', 'Rokok', 'Lainnya',
   ];
 
+  // Daftar satuan cepat (chip suggestion)
+  final List<String> _satuanSuggestions = [
+    'pcs', 'kg', 'gr', 'pack', 'dus', 'botol', 'liter',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -74,6 +80,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _rakCtrl       = TextEditingController(text: p?.rakLokasi ?? '');
     _hargaBeliCtrl = TextEditingController(text: p != null ? '${p.hargaBeli}' : '0');
     _hargaJualCtrl = TextEditingController(text: p != null ? '${p.hargaJual}' : '0');
+    _satuanCtrl    = TextEditingController(text: p?.satuan ?? 'pcs');
     _expiredDate   = p?.expiredDate;
     _existingImageUrl = p?.imageUrl; // simpan URL gambar yang sudah ada
 
@@ -105,6 +112,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _rakCtrl.dispose();
     _hargaBeliCtrl.dispose();
     _hargaJualCtrl.dispose();
+    _satuanCtrl.dispose();
     super.dispose();
   }
 
@@ -305,6 +313,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       rakLokasi: _rakCtrl.text.trim(),
       hargaBeli: int.tryParse(_hargaBeliCtrl.text.trim()) ?? 0,
       hargaJual: int.tryParse(_hargaJualCtrl.text.trim()) ?? 0,
+      satuan: _satuanCtrl.text.trim().isEmpty ? 'pcs' : _satuanCtrl.text.trim(),
       expiredDate: _expiredDate,
       imageUrl: finalImageUrl, // sementara, akan diupdate setelah upload
     );
@@ -521,6 +530,47 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         hint: 'Contoh: C2-03',
                         icon: Icons.location_on_rounded,
                         validator: _requiredValidator,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildField(
+                        controller: _satuanCtrl,
+                        label: 'Satuan Barang *',
+                        hint: 'Contoh: pcs, kg, pack, dus',
+                        icon: Icons.unfold_more_rounded,
+                        validator: _requiredValidator,
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: _satuanSuggestions.map((sat) {
+                          final isSelected = _satuanCtrl.text == sat;
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _satuanCtrl.text = sat;
+                              });
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? context.color.primary
+                                    : context.color.outline.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(sat,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : context.color.onSurfaceVariant)),
+                            ),
+                          );
+                        }).toList(),
                       ),
                       if (isEditMode) ...[
                         const SizedBox(height: 10),

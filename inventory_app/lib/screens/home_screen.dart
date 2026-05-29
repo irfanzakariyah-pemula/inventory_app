@@ -5,12 +5,18 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../providers/sales_provider.dart';
+import '../providers/customer_provider.dart';
+import '../providers/supplier_provider.dart';
 import 'dashboard_screen.dart';
 import 'product_list_screen.dart';
 import 'stock_update_screen.dart';
 import 'transaction_log_screen.dart';
+import 'pos_screen.dart';
+import 'contact_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
+import 'report_screen.dart';
 
 /// ============================================================
 /// HALAMAN UTAMA (SHELL) - Navigasi Sidebar (Navigation Drawer)
@@ -38,6 +44,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Provider.of<ProductProvider>(context, listen: false);
       final transactionProvider =
           Provider.of<TransactionProvider>(context, listen: false);
+      final salesProvider =
+          Provider.of<SalesProvider>(context, listen: false);
+      final supplierProvider =
+          Provider.of<SupplierProvider>(context, listen: false);
+      final customerProvider =
+          Provider.of<CustomerProvider>(context, listen: false);
 
       productProvider.setTransactionProvider(transactionProvider);
       productProvider.startListening();
@@ -46,20 +58,34 @@ class _HomeScreenState extends State<HomeScreen> {
           authProvider.isAdmin ? null : authProvider.currentUser?.id;
       transactionProvider.startListening(userId: userId);
 
+      // Fetch data MVP baru
+      salesProvider.fetchSales();
+      supplierProvider.fetchSuppliers();
+      customerProvider.fetchCustomers();
+
       _isInitialized = true;
     }
   }
 
+  // Indeks halaman Admin:
+  //   0 = Dashboard, 1 = POS/Kasir, 2 = Master Barang,
+  //   3 = Kontak, 4 = Log Stok, 5 = Laporan Penjualan
+  // Indeks halaman Petugas:
+  //   0 = Dashboard, 1 = POS/Kasir, 2 = Update Stok, 3 = Log Stok
   List<Widget> _getPages(bool isAdmin) {
     if (isAdmin) {
       return const [
         DashboardScreen(),
+        PosScreen(),
         ProductListScreen(),
+        ContactScreen(),
         TransactionLogScreen(),
+        ReportScreen(),       // ← Fase B: Laporan Penjualan
       ];
     } else {
       return const [
         DashboardScreen(),
+        PosScreen(),
         StockUpdateScreen(),
         TransactionLogScreen(),
       ];
@@ -276,74 +302,91 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 20),
 
-            // ====== SECTION LABEL ======
-            _drawerSectionLabel('MENU UTAMA'),
-            const SizedBox(height: 4),
-
             // ====== MENU NAVIGASI ======
             Expanded(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ─── Dashboard ─────────────────────────
                     _drawerItem(
                       icon: Icons.dashboard_rounded,
                       label: 'Dashboard',
                       index: 0,
                       description: 'Ringkasan & statistik',
                     ),
-                    if (isAdmin)
+
+                    if (isAdmin) ...[
+                      // ─── TRANSAKSI ─────────────────────────
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('TRANSAKSI'),
+                      const SizedBox(height: 4),
+                      _drawerItem(
+                        icon: Icons.point_of_sale_rounded,
+                        label: 'Kasir / POS',
+                        index: 1,
+                        description: 'Proses penjualan',
+                      ),
+
+                      // ─── DATA ──────────────────────────────
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('DATA'),
+                      const SizedBox(height: 4),
                       _drawerItem(
                         icon: Icons.inventory_2_rounded,
                         label: 'Master Barang',
-                        index: 1,
+                        index: 2,
                         description: 'Kelola produk',
-                      )
-                    else
+                      ),
+                      _drawerItem(
+                        icon: Icons.contacts_rounded,
+                        label: 'Kontak',
+                        index: 3,
+                        description: 'Supplier & pelanggan',
+                      ),
+                      _drawerItem(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'Log Stok',
+                        index: 4,
+                        description: 'Riwayat perubahan stok',
+                      ),
+
+                      // ─── LAPORAN ────────────────────────────
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('LAPORAN'),
+                      const SizedBox(height: 4),
+                      _drawerItem(
+                        icon: Icons.bar_chart_rounded,
+                        label: 'Laporan Penjualan',
+                        index: 5,
+                        description: 'Omset, profit & terlaris',
+                      ),
+                    ] else ...[
+                      // ─── PETUGAS: menu kasir & stok ────────
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('TRANSAKSI'),
+                      const SizedBox(height: 4),
+                      _drawerItem(
+                        icon: Icons.point_of_sale_rounded,
+                        label: 'Kasir / POS',
+                        index: 1,
+                        description: 'Proses penjualan',
+                      ),
                       _drawerItem(
                         icon: Icons.qr_code_scanner_rounded,
                         label: 'Update Stok',
-                        index: 1,
+                        index: 2,
                         description: 'Scan & update stok',
                       ),
-                    _drawerItem(
-                      icon: Icons.receipt_long_rounded,
-                      label: 'Log Transaksi',
-                      index: 2,
-                      description: 'Riwayat perubahan',
-                    ),
-                    if (isAdmin) ...[
-                      const SizedBox(height: 12),
-                      _drawerSectionLabel('FITUR LAINNYA'),
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('DATA'),
                       const SizedBox(height: 4),
-                      _drawerItemNav(
-                        icon: Icons.warning_amber_rounded,
-                        label: 'Mendekati Kedaluwarsa',
-                        description: 'Monitor tanggal expired',
-                        color: const Color(0xFFF59E0B),
-                        onTap: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  const Icon(Icons.info_outline,
-                                      color: Colors.white, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Fitur segera hadir!',
-                                    style: GoogleFonts.inter(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: const Color(0xFF1E293B),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          );
-                        },
+                      _drawerItem(
+                        icon: Icons.receipt_long_rounded,
+                        label: 'Log Stok',
+                        index: 3,
+                        description: 'Riwayat perubahan stok',
                       ),
                     ],
                   ],
@@ -612,65 +655,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _drawerItemNav({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    String? description,
-    Color color = Colors.white,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon,
-                    color: color.withValues(alpha: 0.7), size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.55),
-                      ),
-                    ),
-                    if (description != null)
-                      Text(
-                        description,
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: Colors.white.withValues(alpha: 0.25),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withValues(alpha: 0.2),
-                size: 12,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -36,6 +36,7 @@ class Product {
   final int hargaJual;       // Harga jual ke konsumen per unit (dalam Rupiah)
   final DateTime? expiredDate; // Tanggal kedaluwarsa (null jika tidak ada)
   final String? imageUrl;    // URL gambar produk dari Supabase Storage
+  final String satuan;       // Satuan kuantitas barang (pcs, kg, pack, dus, dll)
 
   Product({
     required this.id,
@@ -48,6 +49,7 @@ class Product {
     required this.rakLokasi,
     required this.hargaBeli,
     required this.hargaJual,
+    this.satuan = 'pcs',
     this.expiredDate,
     this.imageUrl,
   });
@@ -106,6 +108,7 @@ class Product {
       rakLokasi: data['rak_lokasi'] ?? '',
       hargaBeli: (data['harga_beli'] ?? 0) as int,
       hargaJual: (data['harga_jual'] ?? 0) as int,
+      satuan: data['satuan'] ?? 'pcs',
       // Supabase mengembalikan datetime sebagai String ISO 8601
       expiredDate: data['expired_date'] != null
           ? DateTime.parse(data['expired_date'])
@@ -127,6 +130,7 @@ class Product {
       'rak_lokasi': rakLokasi,
       'harga_beli': hargaBeli,
       'harga_jual': hargaJual,
+      'satuan': satuan,
       // Simpan expiredDate sebagai String ISO 8601, atau null
       'expired_date': expiredDate?.toIso8601String(),
       'image_url': imageUrl,
@@ -145,6 +149,7 @@ class Product {
     String? rakLokasi,
     int? hargaBeli,
     int? hargaJual,
+    String? satuan,
     DateTime? expiredDate,
     bool clearExpiredDate = false,
     String? imageUrl,
@@ -161,6 +166,7 @@ class Product {
       rakLokasi: rakLokasi ?? this.rakLokasi,
       hargaBeli: hargaBeli ?? this.hargaBeli,
       hargaJual: hargaJual ?? this.hargaJual,
+      satuan: satuan ?? this.satuan,
       expiredDate: clearExpiredDate ? null : (expiredDate ?? this.expiredDate),
       imageUrl: clearImageUrl ? null : (imageUrl ?? this.imageUrl),
     );

@@ -232,7 +232,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
                                 return DropdownMenuItem(
                                   value: p.id,
                                   child: Text(
-                                    '${p.nama}  (Stok: ${p.stok})',
+                                    '${p.nama}  (Stok: ${p.stok} ${p.satuan})',
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.inter(fontSize: 13),
                                   ),
@@ -516,7 +516,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
             children: [
               _previewStat(context,
                 label: 'Stok Sekarang',
-                value: '${product.stok}',
+                value: '${product.stok} ${product.satuan}',
                 color: product.isStokKritis
                     ? Colors.red.shade600
                     : AppTheme.success,

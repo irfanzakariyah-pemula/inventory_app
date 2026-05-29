@@ -4,6 +4,7 @@
 // 1. Inisialisasi Supabase sebelum runApp
 // 2. Setup MultiProvider (state management global)
 //    - AuthProvider, ProductProvider, TransactionProvider
+//    - SupplierProvider, CustomerProvider, SalesProvider  ← MVP baru
 //    - ThemeProvider (dark/light mode)
 // 3. Konfigurasi tema Material 3 via AppTheme (light & dark)
 // 4. Halaman awal: Login
@@ -21,6 +22,9 @@ import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/transaction_provider.dart';
+import 'providers/supplier_provider.dart';
+import 'providers/customer_provider.dart';
+import 'providers/sales_provider.dart';
 
 // Import halaman awal
 import 'screens/login_screen.dart';
@@ -59,6 +63,10 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        // MVP Smart Retail — provider baru
+        ChangeNotifierProvider(create: (_) => SupplierProvider()),
+        ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => SalesProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {

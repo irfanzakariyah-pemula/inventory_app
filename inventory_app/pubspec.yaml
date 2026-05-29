@@ -40,6 +40,7 @@ dependencies:
   supabase_flutter: ^2.9.0   # Menggantikan firebase_core + firebase_auth + cloud_firestore
   image_picker: ^1.1.2        # Pilih gambar dari galeri / kamera
   cached_network_image: ^3.4.1 # Tampilkan gambar URL dengan cache otomatis
+  fl_chart: ^0.69.0           # Bar chart & grafik penjualan (Dashboard + Laporan)
 
 dev_dependencies:
   flutter_test:
