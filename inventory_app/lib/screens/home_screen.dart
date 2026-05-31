@@ -17,6 +17,10 @@ import 'contact_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
 import 'report_screen.dart';
+import 'kas_screen.dart';
+import 'expense_screen.dart';
+import '../providers/kas_provider.dart';
+import '../providers/expense_provider.dart';
 
 /// ============================================================
 /// HALAMAN UTAMA (SHELL) - Navigasi Sidebar (Navigation Drawer)
@@ -50,6 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Provider.of<SupplierProvider>(context, listen: false);
       final customerProvider =
           Provider.of<CustomerProvider>(context, listen: false);
+      final kasProvider =
+          Provider.of<KasProvider>(context, listen: false);
+      final expenseProvider =
+          Provider.of<ExpenseProvider>(context, listen: false);
 
       productProvider.setTransactionProvider(transactionProvider);
       productProvider.startListening();
@@ -62,6 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
       salesProvider.fetchSales();
       supplierProvider.fetchSuppliers();
       customerProvider.fetchCustomers();
+      kasProvider.fetchTransactions();
+      expenseProvider.fetchExpenses();
 
       _isInitialized = true;
     }
@@ -80,7 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ProductListScreen(),
         ContactScreen(),
         TransactionLogScreen(),
-        ReportScreen(),       // ← Fase B: Laporan Penjualan
+        ReportScreen(),
+        KasScreen(),
+        ExpenseScreen(),
       ];
     } else {
       return const [
@@ -350,6 +362,23 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: 'Log Stok',
                         index: 4,
                         description: 'Riwayat perubahan stok',
+                      ),
+
+                      // ─── KEUANGAN ───────────────────────────
+                      const SizedBox(height: 10),
+                      _drawerSectionLabel('KEUANGAN'),
+                      const SizedBox(height: 4),
+                      _drawerItem(
+                        icon: Icons.account_balance_wallet_rounded,
+                        label: 'Buku Kas',
+                        index: 6,
+                        description: 'Arus kas & saldo',
+                      ),
+                      _drawerItem(
+                        icon: Icons.receipt_rounded,
+                        label: 'Biaya Operasional',
+                        index: 7,
+                        description: 'Kelola pengeluaran',
                       ),
 
                       // ─── LAPORAN ────────────────────────────

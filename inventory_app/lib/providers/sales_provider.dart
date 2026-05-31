@@ -297,6 +297,30 @@ class SalesProvider extends ChangeNotifier {
         'p_items': itemsJson,
       });
 
+      try {
+        // Query UUID transaksi penjualan baru untuk ditautkan di Buku Kas
+        final saleResult = await supabase
+            .from('sales')
+            .select('id')
+            .eq('nomor_struk', nomorStruk)
+            .single();
+        final saleId = saleResult['id'];
+
+        // Otomatis mencatat arus kas masuk
+        await supabase.from('kas').insert({
+          'tipe': 'masuk',
+          'kategori': 'penjualan',
+          'jumlah': total,
+          'keterangan': 'Transaksi POS Kasir: $nomorStruk',
+          'sale_id': saleId,
+          'user_id': userId,
+          'user_name': userName,
+        });
+      } catch (e) {
+        // Jangan block transaksi penjualan jika hanya logging kas gagal
+        debugPrint('Gagal mencatat kas otomatis: $e');
+      }
+
       // Refresh data lokal
       await fetchSales();
 

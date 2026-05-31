@@ -25,6 +25,8 @@ import 'providers/transaction_provider.dart';
 import 'providers/supplier_provider.dart';
 import 'providers/customer_provider.dart';
 import 'providers/sales_provider.dart';
+import 'providers/kas_provider.dart';
+import 'providers/expense_provider.dart';
 
 // Import halaman awal
 import 'screens/login_screen.dart';
@@ -67,6 +69,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SupplierProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
         ChangeNotifierProvider(create: (_) => SalesProvider()),
+        ChangeNotifierProvider(create: (_) => KasProvider()),
+        ChangeNotifierProvider(create: (_) => ExpenseProvider()),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
