@@ -8,6 +8,7 @@
 //   [4] Bagian Stok Kritis & Mendekati Expired (dari sebelumnya)
 // ============================================================
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -942,6 +943,8 @@ class DashboardScreen extends StatelessWidget {
     final persen = product.stokMinimum > 0
         ? (product.stok / product.stokMinimum).clamp(0.0, 1.0)
         : 0.0;
+    final hasImage =
+        product.imageUrl != null && product.imageUrl!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -960,15 +963,39 @@ class DashboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppTheme.error.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+          // Thumbnail produk — gambar atau ikon fallback
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppTheme.error.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: hasImage
+                  ? CachedNetworkImage(
+                      imageUrl: product.imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (ctx, url) => Center(
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.error.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (ctx, url, err) => Icon(
+                        Icons.inventory_2_rounded,
+                        color: AppTheme.error,
+                        size: 22,
+                      ),
+                    )
+                  : Icon(Icons.inventory_2_rounded,
+                      color: AppTheme.error, size: 22),
             ),
-            child:
-                Icon(Icons.inventory_2_rounded, color: AppTheme.error, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1039,6 +1066,8 @@ class DashboardScreen extends StatelessWidget {
         : sisa <= 15
             ? const Color(0xFFF59E0B)
             : const Color(0xFF84CC16);
+    final hasImage =
+        product.imageUrl != null && product.imageUrl!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1057,15 +1086,39 @@ class DashboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: sisaColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+          // Thumbnail produk — gambar atau ikon fallback
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: sisaColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: hasImage
+                  ? CachedNetworkImage(
+                      imageUrl: product.imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (ctx, url) => Center(
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: sisaColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (ctx, url, err) => Icon(
+                        Icons.calendar_month_rounded,
+                        color: sisaColor,
+                        size: 22,
+                      ),
+                    )
+                  : Icon(Icons.calendar_month_rounded,
+                      color: sisaColor, size: 22),
             ),
-            child:
-                Icon(Icons.calendar_month_rounded, color: sisaColor, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(

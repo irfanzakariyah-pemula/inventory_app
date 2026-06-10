@@ -1,9 +1,11 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/product_model.dart';
+import '../theme/app_theme.dart';
 
 /// Widget kartu reusable untuk menampilkan info produk di daftar barang.
-/// Menampilkan nama, SKU, kategori, stok, dan lokasi rak.
+/// Menampilkan foto produk (jika ada), nama, SKU, kategori, stok, dan lokasi rak.
 /// Warna indikator berubah merah jika stok kritis.
 class ProductCard extends StatelessWidget {
   final Product product;
@@ -24,7 +26,7 @@ class ProductCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.color.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -41,17 +43,8 @@ class ProductCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                // Ikon kategori
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B2A4A).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(_getCategoryIcon(product.kategori),
-                      color: const Color(0xFF1B2A4A), size: 24),
-                ),
+                // Thumbnail produk — gambar URL atau ikon fallback
+                _buildThumbnail(context),
                 const SizedBox(width: 12),
                 // Nama dan SKU
                 Expanded(
@@ -62,13 +55,14 @@ class ProductCard extends StatelessWidget {
                           style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
-                              color: const Color(0xFF1A1A2E)),
+                              color: context.color.onSurface),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text(product.sku,
                           style: GoogleFonts.inter(
-                              fontSize: 12, color: Colors.grey.shade500)),
+                              fontSize: 12,
+                              color: context.color.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -99,9 +93,10 @@ class ProductCard extends StatelessWidget {
             // Info bawah: kategori & lokasi rak
             Row(
               children: [
-                _infoChip(Icons.category_outlined, product.kategori),
+                _infoChip(context, Icons.category_outlined, product.kategori),
                 const SizedBox(width: 12),
-                _infoChip(Icons.location_on_outlined, 'Rak ${product.rakLokasi}'),
+                _infoChip(context, Icons.location_on_outlined,
+                    'Rak ${product.rakLokasi}'),
                 const Spacer(),
                 // Tombol aksi (hanya untuk admin)
                 if (showActions) ...[
@@ -111,7 +106,7 @@ class ProductCard extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(6),
                       child: Icon(Icons.edit_outlined,
-                          size: 20, color: const Color(0xFF4A6FA5)),
+                          size: 20, color: context.color.secondary),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -133,15 +128,69 @@ class ProductCard extends StatelessWidget {
     );
   }
 
+  /// Thumbnail produk: tampilkan foto jika ada, fallback ke ikon kategori.
+  Widget _buildThumbnail(BuildContext context) {
+    final hasImage =
+        product.imageUrl != null && product.imageUrl!.isNotEmpty;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: product.isStokKritis
+              ? Colors.red.shade50
+              : context.color.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: hasImage
+            ? CachedNetworkImage(
+                imageUrl: product.imageUrl!,
+                fit: BoxFit.cover,
+                placeholder: (ctx, url) => Center(
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.color.primary.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                errorWidget: (ctx, url, err) => Center(
+                  child: Icon(
+                    _getCategoryIcon(product.kategori),
+                    size: 24,
+                    color: product.isStokKritis
+                        ? Colors.red.shade400
+                        : context.color.secondary,
+                  ),
+                ),
+              )
+            : Center(
+                child: Icon(
+                  _getCategoryIcon(product.kategori),
+                  size: 24,
+                  color: product.isStokKritis
+                      ? Colors.red.shade400
+                      : context.color.secondary,
+                ),
+              ),
+      ),
+    );
+  }
+
   /// Widget chip kecil untuk info kategori dan lokasi
-  Widget _infoChip(IconData icon, String label) {
+  Widget _infoChip(BuildContext context, IconData icon, String label) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey.shade500),
+        Icon(icon, size: 14, color: context.color.onSurfaceVariant),
         const SizedBox(width: 4),
         Text(label,
-            style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade600)),
+            style: GoogleFonts.inter(
+                fontSize: 12, color: context.color.onSurfaceVariant)),
       ],
     );
   }
@@ -155,6 +204,22 @@ class ProductCard extends StatelessWidget {
         return Icons.edit_note_outlined;
       case 'furnitur':
         return Icons.chair_outlined;
+      case 'minuman':
+        return Icons.local_drink_outlined;
+      case 'makanan':
+        return Icons.restaurant_outlined;
+      case 'snack':
+        return Icons.cookie_outlined;
+      case 'susu & dairy':
+        return Icons.egg_outlined;
+      case 'sembako':
+        return Icons.shopping_basket_outlined;
+      case 'kebersihan':
+        return Icons.clean_hands_outlined;
+      case 'kosmetik':
+        return Icons.face_outlined;
+      case 'rokok':
+        return Icons.smoking_rooms_outlined;
       default:
         return Icons.inventory_2_outlined;
     }

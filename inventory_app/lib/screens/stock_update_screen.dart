@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter/services.dart';
@@ -460,6 +461,9 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
   }
 
   Widget _buildProductPreview(BuildContext context, Product product) {
+    final hasImage =
+        product.imageUrl != null && product.imageUrl!.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -477,15 +481,40 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: context.color.secondary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+              // Thumbnail produk — gambar atau ikon fallback
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: context.color.secondary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: hasImage
+                      ? CachedNetworkImage(
+                          imageUrl: product.imageUrl!,
+                          fit: BoxFit.cover,
+                          placeholder: (ctx, url) => Center(
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: context.color.secondary
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (ctx, url, err) => Icon(
+                            Icons.inventory_2_rounded,
+                            color: context.color.secondary,
+                            size: 26,
+                          ),
+                        )
+                      : Icon(Icons.inventory_2_rounded,
+                          color: context.color.secondary, size: 26),
                 ),
-                child: Icon(Icons.inventory_2_rounded,
-                    color: context.color.secondary, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(

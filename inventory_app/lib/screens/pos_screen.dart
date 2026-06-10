@@ -16,6 +16,7 @@
 //   5. Dialog sukses dengan info struk
 // ============================================================
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -589,15 +590,30 @@ class _PosScreenState extends State<PosScreen>
                     : context.color.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: product.imageUrl != null
+              child: product.imageUrl != null && product.imageUrl!.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.network(product.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (ctx, err, stack) => Icon(
-                              Icons.image_not_supported_rounded,
-                              size: 22,
-                              color: context.color.onSurfaceVariant)),
+                      child: CachedNetworkImage(
+                        imageUrl: product.imageUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (ctx, url) => Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: context.color.primary.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (ctx, url, err) => Icon(
+                          Icons.inventory_2_rounded,
+                          size: 22,
+                          color: isOutOfStock
+                              ? context.color.onSurfaceVariant.withValues(alpha: 0.4)
+                              : context.color.primary.withValues(alpha: 0.6),
+                        ),
+                      ),
                     )
                   : Icon(
                       Icons.inventory_2_rounded,

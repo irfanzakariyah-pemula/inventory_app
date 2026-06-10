@@ -38,6 +38,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  // State expanded/collapsed per seksi accordion
+  final Map<String, bool> _expandedSections = {
+    'data': true,
+    'keuangan': false,
+  };
+
+  void _toggleSection(String key) {
+    setState(() => _expandedSections[key] = !(_expandedSections[key] ?? false));
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -341,44 +351,58 @@ class _HomeScreenState extends State<HomeScreen> {
                         description: 'Proses penjualan',
                       ),
 
-                      // ─── DATA ──────────────────────────────
-                      const SizedBox(height: 10),
-                      _drawerSectionLabel('DATA'),
-                      const SizedBox(height: 4),
-                      _drawerItem(
-                        icon: Icons.inventory_2_rounded,
-                        label: 'Master Barang',
-                        index: 2,
-                        description: 'Kelola produk',
-                      ),
-                      _drawerItem(
-                        icon: Icons.contacts_rounded,
-                        label: 'Kontak',
-                        index: 3,
-                        description: 'Supplier & pelanggan',
-                      ),
-                      _drawerItem(
-                        icon: Icons.receipt_long_rounded,
-                        label: 'Log Stok',
-                        index: 4,
-                        description: 'Riwayat perubahan stok',
+                      // ─── DATA (expandable accordion) ───────────
+                      const SizedBox(height: 6),
+                      _expandableSection(
+                        sectionKey: 'data',
+                        icon: Icons.storage_rounded,
+                        label: 'DATA',
+                        accentColor: const Color(0xFF8B5CF6),
+                        activeIndices: const [2, 3, 4],
+                        children: [
+                          _drawerItem(
+                            icon: Icons.inventory_2_rounded,
+                            label: 'Master Barang',
+                            index: 2,
+                            description: 'Kelola produk',
+                          ),
+                          _drawerItem(
+                            icon: Icons.contacts_rounded,
+                            label: 'Kontak',
+                            index: 3,
+                            description: 'Supplier & pelanggan',
+                          ),
+                          _drawerItem(
+                            icon: Icons.receipt_long_rounded,
+                            label: 'Log Stok',
+                            index: 4,
+                            description: 'Riwayat perubahan stok',
+                          ),
+                        ],
                       ),
 
-                      // ─── KEUANGAN ───────────────────────────
-                      const SizedBox(height: 10),
-                      _drawerSectionLabel('KEUANGAN'),
-                      const SizedBox(height: 4),
-                      _drawerItem(
-                        icon: Icons.account_balance_wallet_rounded,
-                        label: 'Buku Kas',
-                        index: 6,
-                        description: 'Arus kas & saldo',
-                      ),
-                      _drawerItem(
-                        icon: Icons.receipt_rounded,
-                        label: 'Biaya Operasional',
-                        index: 7,
-                        description: 'Kelola pengeluaran',
+                      // ─── KEUANGAN (expandable accordion) ─────────
+                      const SizedBox(height: 6),
+                      _expandableSection(
+                        sectionKey: 'keuangan',
+                        icon: Icons.account_balance_rounded,
+                        label: 'KEUANGAN',
+                        accentColor: const Color(0xFF0D9488),
+                        activeIndices: const [6, 7],
+                        children: [
+                          _drawerItem(
+                            icon: Icons.account_balance_wallet_rounded,
+                            label: 'Buku Kas',
+                            index: 6,
+                            description: 'Arus kas & saldo',
+                          ),
+                          _drawerItem(
+                            icon: Icons.receipt_rounded,
+                            label: 'Biaya Operasional',
+                            index: 7,
+                            description: 'Kelola pengeluaran',
+                          ),
+                        ],
                       ),
 
                       // ─── LAPORAN ────────────────────────────
@@ -571,6 +595,127 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ============================================================
+  // WIDGET: Expandable Section Accordion
+  // Klik header → sub-menu expand/collapse dengan animasi halus
+  // ============================================================
+  Widget _expandableSection({
+    required String sectionKey,
+    required IconData icon,
+    required String label,
+    required Color accentColor,
+    required List<int> activeIndices,
+    required List<Widget> children,
+  }) {
+    final isExpanded = _expandedSections[sectionKey] ?? false;
+    // Periksa apakah halaman aktif saat ini ada di dalam seksi ini
+    final hasActiveChild = activeIndices.contains(_currentIndex);
+
+    // Jika ada sub-item aktif, auto-expand saat pertama render
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ─── Header tombol expand/collapse ─────────────────────
+        InkWell(
+          onTap: () => _toggleSection(sectionKey),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isExpanded || hasActiveChild
+                  ? accentColor.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: isExpanded || hasActiveChild
+                  ? Border.all(color: accentColor.withValues(alpha: 0.25))
+                  : null,
+            ),
+            child: Row(
+              children: [
+                // Icon seksi dengan badge glow jika ada child aktif
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(
+                        alpha: (isExpanded || hasActiveChild) ? 0.25 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 15,
+                    color: accentColor.withValues(
+                        alpha: (isExpanded || hasActiveChild) ? 1.0 : 0.6),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.4,
+                      color: (isExpanded || hasActiveChild)
+                          ? accentColor.withValues(alpha: 0.9)
+                          : Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                // Dot indikator jika ada child aktif tapi sedang collapsed
+                if (hasActiveChild && !isExpanded)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: accentColor.withValues(alpha: 0.6),
+                          blurRadius: 5,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                // Chevron berputar saat expand/collapse
+                AnimatedRotation(
+                  duration: const Duration(milliseconds: 250),
+                  turns: isExpanded ? 0.5 : 0.0,
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: (isExpanded || hasActiveChild)
+                        ? accentColor.withValues(alpha: 0.8)
+                        : Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // ─── Daftar sub-menu (animasi expand/collapse) ─────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          child: ClipRect(
+            child: isExpanded
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 8),
+                    child: Column(children: children),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ),
+      ],
     );
   }
 
