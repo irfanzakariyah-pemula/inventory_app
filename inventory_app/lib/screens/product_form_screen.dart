@@ -294,90 +294,122 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final provider = Provider.of<ProductProvider>(context, listen: false);
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
-    // Tentukan imageUrl yang akan disimpan:
-    // - Jika ada file baru dipilih → akan diupload
-    // - Jika tidak ada file baru tapi ada URL lama → pakai URL lama
-    // - Jika keduanya null → null (gambar dihapus atau memang tidak ada)
-    String? finalImageUrl = _existingImageUrl;
+    try {
+      // ── LANGKAH 1: Upload gambar dulu sebelum simpan produk ──────────
+      // Ini memastikan ID produk (mode edit) atau kita pakai SKU sementara.
+      // Untuk mode TAMBAH BARU: upload gambar dilakukan SETELAH produk tersimpan
+      // dan ID-nya diambil dari response insert (bukan pencarian via SKU).
 
-    final product = Product(
-      id: widget.product?.id ?? '',
-      nama: _namaCtrl.text.trim(),
-      sku: _skuCtrl.text.trim(),
-      barcode: _barcodeCtrl.text.trim().isNotEmpty
-          ? _barcodeCtrl.text.trim()
-          : _skuCtrl.text.trim(),
-      kategori: _kategoriCtrl.text.trim(),
-      stok: int.tryParse(_stokCtrl.text.trim()) ?? 0,
-      stokMinimum: int.tryParse(_stokMinCtrl.text.trim()) ?? 0,
-      rakLokasi: _rakCtrl.text.trim(),
-      hargaBeli: int.tryParse(_hargaBeliCtrl.text.trim()) ?? 0,
-      hargaJual: int.tryParse(_hargaJualCtrl.text.trim()) ?? 0,
-      satuan: _satuanCtrl.text.trim().isEmpty ? 'pcs' : _satuanCtrl.text.trim(),
-      expiredDate: _expiredDate,
-      imageUrl: finalImageUrl, // sementara, akan diupdate setelah upload
-    );
+      String? finalImageUrl = _existingImageUrl;
 
-    if (isEditMode) {
-      await provider.updateProduct(product,
-          userId: auth.currentUser?.id, userName: auth.currentUser?.nama);
-    } else {
-      await provider.addProduct(product,
-          userId: auth.currentUser?.id, userName: auth.currentUser?.nama);
-    }
+      final product = Product(
+        id: widget.product?.id ?? '',
+        nama: _namaCtrl.text.trim(),
+        sku: _skuCtrl.text.trim(),
+        barcode: _barcodeCtrl.text.trim().isNotEmpty
+            ? _barcodeCtrl.text.trim()
+            : _skuCtrl.text.trim(),
+        kategori: _kategoriCtrl.text.trim(),
+        stok: int.tryParse(_stokCtrl.text.trim()) ?? 0,
+        stokMinimum: int.tryParse(_stokMinCtrl.text.trim()) ?? 0,
+        rakLokasi: _rakCtrl.text.trim(),
+        hargaBeli: int.tryParse(_hargaBeliCtrl.text.trim()) ?? 0,
+        hargaJual: int.tryParse(_hargaJualCtrl.text.trim()) ?? 0,
+        satuan: _satuanCtrl.text.trim().isEmpty ? 'pcs' : _satuanCtrl.text.trim(),
+        expiredDate: _expiredDate,
+        imageUrl: finalImageUrl,
+      );
 
-    // Jika ada file gambar baru yang dipilih, upload ke Supabase Storage
-    if (_pickedImageFile != null && mounted) {
-      // Ambil id produk yang baru saja dibuat/diupdate
-      final savedProductId = isEditMode
-          ? product.id
-          : provider.allProducts
-              .firstWhere(
-                (p) => p.sku == product.sku,
-                orElse: () => product,
-              )
-              .id;
+      // ── LANGKAH 2: Simpan data produk ke database ─────────────────────
+      String savedProductId;
 
-      if (savedProductId.isNotEmpty) {
-        setState(() => _isUploadingImage = true);
+      if (isEditMode) {
+        // Mode edit — ID sudah diketahui
+        savedProductId = product.id;
+        await provider.updateProduct(
+          product,
+          userId: auth.currentUser?.id,
+          userName: auth.currentUser?.nama,
+        );
+      } else {
+        // Mode tambah baru — ambil ID dari hasil insert via addProductAndGetId
+        savedProductId = await provider.addProductAndGetId(
+          product,
+          userId: auth.currentUser?.id,
+          userName: auth.currentUser?.nama,
+        );
+      }
 
-        // Hapus gambar lama dari Storage jika ada (mode edit & ganti gambar)
+      if (!mounted) return;
+
+      // ── LANGKAH 3: Upload gambar jika ada file baru dipilih ───────────
+      if (_pickedImageFile != null && savedProductId.isNotEmpty) {
+        if (mounted) setState(() => _isUploadingImage = true);
+
+        // Hapus gambar lama dari Storage jika mode edit dan ada gambar lama
         if (isEditMode && widget.product?.imageUrl != null) {
           await provider.deleteGambarProduk(widget.product!.imageUrl);
         }
 
-        // Upload gambar baru
+        // Upload gambar baru ke Supabase Storage
         finalImageUrl = await provider.uploadGambarProduk(
           imageFile: _pickedImageFile!,
           productId: savedProductId,
         );
 
-        // Simpan URL ke database
-        if (finalImageUrl != null) {
+        if (!mounted) return;
+        setState(() => _isUploadingImage = false);
+
+        // Cek apakah upload berhasil
+        if (finalImageUrl == null) {
+          // Upload gagal — tampilkan error tapi produk tetap tersimpan
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              provider.errorMessage ?? 'Gagal upload gambar. Data barang tetap tersimpan.',
+              style: GoogleFonts.inter(),
+            ),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ));
+        } else {
+          // Upload berhasil — update image_url di database
           await provider.updateImageUrl(savedProductId, finalImageUrl);
         }
-        setState(() => _isUploadingImage = false);
+      } else if (_existingImageUrl == null && widget.product?.imageUrl != null) {
+        // User menghapus gambar — hapus dari Storage dan database
+        await provider.deleteGambarProduk(widget.product!.imageUrl);
+        await provider.updateImageUrl(savedProductId, null);
       }
-    } else if (_existingImageUrl == null && widget.product?.imageUrl != null) {
-      // Gambar dihapus oleh user (existingImageUrl di-null-kan)
-      await provider.deleteGambarProduk(widget.product!.imageUrl);
-      await provider.updateImageUrl(product.id, null);
-    }
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(
-        isEditMode
-            ? '"${product.nama}" berhasil diperbarui'
-            : '"${product.nama}" berhasil ditambahkan',
-        style: GoogleFonts.inter(),
-      ),
-      backgroundColor: AppTheme.success,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          isEditMode
+              ? '"${product.nama}" berhasil diperbarui'
+              : '"${product.nama}" berhasil ditambahkan',
+          style: GoogleFonts.inter(),
+        ),
+        backgroundColor: AppTheme.success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _isUploadingImage = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Terjadi kesalahan: $e', style: GoogleFonts.inter()),
+        backgroundColor: Colors.red.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
   }
 
   // ─── Build ────────────────────────────────────────────────────

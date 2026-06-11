@@ -142,7 +142,6 @@ class ProductProvider extends ChangeNotifier {
     String? userName,
   }) async {
     try {
-      // Insert dan ambil kembali data yang baru dibuat (beserta id-nya)
       final inserted = await supabase
           .from('products')
           .insert(product.toMap())
@@ -151,7 +150,6 @@ class ProductProvider extends ChangeNotifier {
 
       final newProduct = Product.fromMap(inserted);
 
-      // Catat log stok awal jika stok > 0
       if (product.stok > 0 && userId != null && userName != null) {
         await _transactionProvider?.addLog(
           productId: newProduct.id,
@@ -166,11 +164,54 @@ class ProductProvider extends ChangeNotifier {
         );
       }
 
-      // Refresh daftar produk dari server
       await fetchProducts();
     } on PostgrestException catch (e) {
       _errorMessage = 'Gagal menambah produk: ${e.message}';
       notifyListeners();
+    }
+  }
+
+  /// Menambahkan produk baru dan mengembalikan ID-nya secara langsung.
+  /// Digunakan oleh ProductFormScreen agar bisa upload gambar segera
+  /// setelah produk tersimpan tanpa harus mencari via SKU.
+  Future<String> addProductAndGetId(
+    Product product, {
+    String? userId,
+    String? userName,
+  }) async {
+    try {
+      final inserted = await supabase
+          .from('products')
+          .insert(product.toMap())
+          .select()
+          .single();
+
+      final newProduct = Product.fromMap(inserted);
+
+      if (product.stok > 0 && userId != null && userName != null) {
+        await _transactionProvider?.addLog(
+          productId: newProduct.id,
+          productName: newProduct.nama,
+          userId: userId,
+          userName: userName,
+          type: TransactionType.masuk,
+          jumlah: product.stok,
+          stokSebelum: 0,
+          stokSesudah: product.stok,
+          catatan: 'Stok awal saat barang pertama kali didaftarkan',
+        );
+      }
+
+      await fetchProducts();
+      return newProduct.id; // ← Kembalikan ID langsung dari response
+    } on PostgrestException catch (e) {
+      _errorMessage = 'Gagal menambah produk: ${e.message}';
+      notifyListeners();
+      return ''; // Kembalikan string kosong jika gagal
+    } catch (e) {
+      _errorMessage = 'Error: $e';
+      notifyListeners();
+      return '';
     }
   }
 
