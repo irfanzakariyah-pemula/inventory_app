@@ -14,7 +14,6 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/sales_provider.dart';
 import '../models/sales_model.dart';
-import '../providers/expense_provider.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -169,12 +168,9 @@ class _ReportScreenState extends State<ReportScreen>
   // ============================================================
 
   Widget _buildRingkasan(BuildContext context, SalesProvider sp) {
-    final expProv = Provider.of<ExpenseProvider>(context);
     final sales = sp.getSalesByPeriode(_selectedPeriode);
     final totalOmset = sp.getTotalOmset(sales);
     final totalProfit = sp.getTotalProfit(sales); // Ini merupakan Laba Kotor (Gross Profit)
-    final expenses = expProv.getExpensesByPeriodString(_selectedPeriode);
-    final totalExpense = expenses.fold(0, (sum, exp) => sum + exp.jumlah);
     
     final jumlah = sales.length;
     final rata = jumlah > 0 ? totalOmset ~/ jumlah : 0;
@@ -184,7 +180,6 @@ class _ReportScreenState extends State<ReportScreen>
       backgroundColor: context.color.surfaceContainer,
       onRefresh: () async {
         await sp.fetchSales();
-        await expProv.fetchExpenses();
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -269,17 +264,12 @@ class _ReportScreenState extends State<ReportScreen>
             ),
             const SizedBox(height: 24),
 
-            // ── Laporan Laba Rugi Riil ───────────────────────
-            if (jumlah > 0 || totalExpense > 0) ...[
-              _buildLabaRugiRiil(context, totalOmset, totalProfit, totalExpense),
-              const SizedBox(height: 24),
-            ],
 
             // ── Breakdown metode bayar ──────────────────────
             if (jumlah > 0) _buildMethodBreakdown(context, sales),
 
             // ── Empty state ─────────────────────────────────
-            if (jumlah == 0 && totalExpense == 0) _emptyState(context, _periodeLabel()),
+            if (jumlah == 0) _emptyState(context, _periodeLabel()),
           ],
         ),
       ),
@@ -415,165 +405,7 @@ class _ReportScreenState extends State<ReportScreen>
     );
   }
 
-  Widget _buildLabaRugiRiil(
-      BuildContext context, int omset, int profit, int expenses) {
-    final labaKotor = profit;
-    final labaBersih = labaKotor - expenses;
-    final hpp = omset - labaKotor;
 
-    final marginKotor = omset > 0 ? (labaKotor / omset * 100).toStringAsFixed(1) : '0.0';
-    final marginBersih = omset > 0 ? (labaBersih / omset * 100).toStringAsFixed(1) : '0.0';
-    final netRatio = labaKotor > 0 ? (labaBersih / labaKotor).clamp(0.0, 1.0) : 0.0;
-
-    final colorBersih = labaBersih >= 0 ? AppTheme.success : AppTheme.error;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: context.color.surfaceContainer,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: context.color.outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Laporan Laba Rugi Riil',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: context.color.onSurface,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: colorBersih.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'Margin Bersih: $marginBersih%',
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: colorBersih,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Baris Detail Laba Rugi
-          _labaRugiRow(context, label: '[+] Pendapatan (Omset)', value: omset, isBold: false, color: Colors.blue),
-          _labaRugiRow(context, label: '[-] HPP (Harga Beli)', value: hpp, isBold: false, color: Colors.grey),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Divider(height: 1, thickness: 0.5),
-          ),
-          _labaRugiRow(context, label: '[=] Laba Kotor (Gross)', value: labaKotor, isBold: true, color: Colors.teal, subtitle: 'Margin: $marginKotor%'),
-          _labaRugiRow(context, label: '[-] Biaya Operasional', value: expenses, isBold: false, color: Colors.red),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Divider(height: 1.5, thickness: 1.5),
-          ),
-          _labaRugiRow(
-            context,
-            label: '[=] LABA BERSIH RIIL',
-            value: labaBersih,
-            isBold: true,
-            color: colorBersih,
-            largeText: true,
-          ),
-          const SizedBox(height: 14),
-
-          // Visual Progress Bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: Stack(
-              children: [
-                Container(
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                if (labaBersih > 0)
-                  FractionallySizedBox(
-                    widthFactor: netRatio,
-                    child: Container(
-                      height: 10,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF22C55E), Color(0xFF16A34A)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _labaRugiRow(BuildContext context,
-      {required String label,
-      required int value,
-      required bool isBold,
-      required Color color,
-      String? subtitle,
-      bool largeText = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: largeText ? 13 : 12,
-                  fontWeight: isBold ? FontWeight.w800 : FontWeight.w500,
-                  color: isBold ? context.color.onSurface : context.color.onSurfaceVariant,
-                ),
-              ),
-              if (subtitle != null)
-                Text(
-                  subtitle,
-                  style: GoogleFonts.inter(fontSize: 10, color: Colors.teal, fontWeight: FontWeight.w600),
-                ),
-            ],
-          ),
-          Text(
-            _fmtRp.format(value),
-            style: GoogleFonts.inter(
-              fontSize: largeText ? 15 : 13,
-              fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
-              color: isBold ? color : context.color.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildMethodBreakdown(
       BuildContext context, List<SalesTransaction> sales) {

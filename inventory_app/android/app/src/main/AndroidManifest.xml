@@ -8,6 +8,8 @@
         android:maxSdkVersion="32"/>
     <!-- Akses kamera -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Akses internet untuk Supabase -->
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
         android:label="inventory_app"

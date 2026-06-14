@@ -243,8 +243,7 @@ class SalesProvider extends ChangeNotifier {
     required String userName,
     required int bayar,
     required String metodeBayar,
-    String? customerId,
-    String? customerName,
+
     int diskon = 0,
     String? catatan,
   }) async {
@@ -283,8 +282,8 @@ class SalesProvider extends ChangeNotifier {
       // Panggil RPC checkout_transaction di Supabase
       await supabase.rpc('checkout_transaction', params: {
         'p_nomor_struk': nomorStruk,
-        'p_customer_id': customerId,
-        'p_customer_name': customerName,
+        'p_customer_id': null,
+        'p_customer_name': null,
         'p_user_id': userId,
         'p_user_name': userName,
         'p_subtotal': subtotal,
@@ -297,29 +296,7 @@ class SalesProvider extends ChangeNotifier {
         'p_items': itemsJson,
       });
 
-      try {
-        // Query UUID transaksi penjualan baru untuk ditautkan di Buku Kas
-        final saleResult = await supabase
-            .from('sales')
-            .select('id')
-            .eq('nomor_struk', nomorStruk)
-            .single();
-        final saleId = saleResult['id'];
 
-        // Otomatis mencatat arus kas masuk
-        await supabase.from('kas').insert({
-          'tipe': 'masuk',
-          'kategori': 'penjualan',
-          'jumlah': total,
-          'keterangan': 'Transaksi POS Kasir: $nomorStruk',
-          'sale_id': saleId,
-          'user_id': userId,
-          'user_name': userName,
-        });
-      } catch (e) {
-        // Jangan block transaksi penjualan jika hanya logging kas gagal
-        debugPrint('Gagal mencatat kas otomatis: $e');
-      }
 
       // Refresh data lokal
       await fetchSales();

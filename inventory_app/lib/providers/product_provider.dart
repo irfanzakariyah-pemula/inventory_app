@@ -14,7 +14,7 @@
 //   [~] searchProducts()  : Bisa cari berdasarkan nama, SKU, barcode, kategori
 // ============================================================
 
-import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/product_model.dart';
@@ -345,86 +345,7 @@ class ProductProvider extends ChangeNotifier {
     );
   }
 
-  // ==================== IMAGE OPERATIONS ====================
 
-  /// Upload gambar produk ke Supabase Storage (bucket: product-images).
-  /// Mengembalikan public URL gambar jika sukses, null jika gagal.
-  /// Path: products/{productId}/{timestamp}.jpg
-  Future<String?> uploadGambarProduk({
-    required File imageFile,
-    required String productId,
-  }) async {
-    try {
-      final ext = imageFile.path.split('.').last.toLowerCase();
-      final safeExt = ['jpg', 'jpeg', 'png', 'webp'].contains(ext) ? ext : 'jpg';
-      final filePath =
-          'products/$productId/${DateTime.now().millisecondsSinceEpoch}.$safeExt';
-
-      await supabase.storage
-          .from('product-images')
-          .upload(
-            filePath,
-            imageFile,
-            fileOptions: const FileOptions(upsert: true),
-          );
-
-      // Ambil URL publik gambar
-      final publicUrl = supabase.storage
-          .from('product-images')
-          .getPublicUrl(filePath);
-
-      return publicUrl;
-    } on StorageException catch (e) {
-      _errorMessage = 'Gagal upload gambar: ${e.message}';
-      notifyListeners();
-      return null;
-    } catch (e) {
-      _errorMessage = 'Error upload: $e';
-      notifyListeners();
-      return null;
-    }
-  }
-
-  /// Hapus gambar produk dari Supabase Storage berdasarkan URL publik.
-  Future<void> deleteGambarProduk(String? imageUrl) async {
-    if (imageUrl == null || imageUrl.isEmpty) return;
-    try {
-      // Ekstrak path file dari URL publik
-      // Format URL: https://{project}.supabase.co/storage/v1/object/public/product-images/{path}
-      final uri = Uri.parse(imageUrl);
-      final segments = uri.pathSegments;
-      // Cari index 'product-images' lalu ambil sisanya sebagai path
-      final bucketIndex = segments.indexOf('product-images');
-      if (bucketIndex == -1 || bucketIndex + 1 >= segments.length) return;
-      final filePath = segments.sublist(bucketIndex + 1).join('/');
-
-      await supabase.storage.from('product-images').remove([filePath]);
-    } catch (_) {
-      // Silent fail — jika hapus gambar lama gagal, tidak perlu blokir operasi lain
-    }
-  }
-
-  /// Update field image_url produk di database.
-  Future<void> updateImageUrl(String productId, String? imageUrl) async {
-    try {
-      await supabase
-          .from('products')
-          .update({'image_url': imageUrl})
-          .eq('id', productId);
-      // Update state lokal agar UI langsung refresh tanpa fetch ulang
-      final idx = _products.indexWhere((p) => p.id == productId);
-      if (idx != -1) {
-        _products[idx] = _products[idx].copyWith(
-          imageUrl: imageUrl,
-          clearImageUrl: imageUrl == null,
-        );
-        notifyListeners();
-      }
-    } on PostgrestException catch (e) {
-      _errorMessage = 'Gagal update URL gambar: ${e.message}';
-      notifyListeners();
-    }
-  }
 
   // ==================== STOK OPERATIONS ====================
 

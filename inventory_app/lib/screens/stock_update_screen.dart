@@ -334,7 +334,7 @@ class _StockUpdateScreenState extends State<StockUpdateScreen> {
                   maxLines: 2,
                   decoration: InputDecoration(
                     hintText:
-                        'Contoh: Barang diterima dari supplier PT. Maju',
+                        'Contoh: Barang diterima dari pusat',
                     hintStyle: GoogleFonts.inter(
                         fontSize: 13, color: context.color.onSurfaceVariant.withValues(alpha: 0.7)),
                     prefixIcon: Padding(

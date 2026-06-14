@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/product_model.dart';
 import '../providers/product_provider.dart';
 import 'product_form_screen.dart';
@@ -375,8 +374,6 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildProductThumbnail(BuildContext context, Product product) {
-    final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
-
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -388,35 +385,13 @@ class _ProductListScreenState extends State<ProductListScreen> {
               : context.color.primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: hasImage
-            ? CachedNetworkImage(
-                imageUrl: product.imageUrl!,
-                fit: BoxFit.cover,
-                placeholder: (ctx, url) => Center(
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: context.color.primary.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-                errorWidget: (ctx, url, err) => Icon(
-                  Icons.inventory_2_rounded,
-                  color: product.isStokKritis
-                      ? Colors.red.shade400
-                      : context.color.secondary,
-                  size: 24,
-                ),
-              )
-            : Icon(
-                Icons.inventory_2_rounded,
-                color: product.isStokKritis
-                    ? Colors.red.shade400
-                    : context.color.secondary,
-                size: 24,
-              ),
+        child: Icon(
+          Icons.inventory_2_rounded,
+          color: product.isStokKritis
+              ? Colors.red.shade400
+              : context.color.secondary,
+          size: 24,
+        ),
       ),
     );
   }

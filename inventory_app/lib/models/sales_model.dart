@@ -103,8 +103,6 @@ class SalesItem {
 class SalesTransaction {
   final String id;
   final String? nomorStruk;
-  final String? customerId;
-  final String? customerName;
   final String userId;
   final String userName;
   final List<SalesItem> items;
@@ -120,8 +118,6 @@ class SalesTransaction {
   const SalesTransaction({
     required this.id,
     this.nomorStruk,
-    this.customerId,
-    this.customerName,
     required this.userId,
     required this.userName,
     this.items = const [],
@@ -154,8 +150,6 @@ class SalesTransaction {
     return SalesTransaction(
       id: data['id'] ?? '',
       nomorStruk: data['nomor_struk'],
-      customerId: data['customer_id'],
-      customerName: data['customer_name'],
       userId: data['user_id'] ?? '',
       userName: data['user_name'] ?? '',
       items: items ?? [],
@@ -176,8 +170,6 @@ class SalesTransaction {
   Map<String, dynamic> toMap() {
     return {
       if (nomorStruk != null) 'nomor_struk': nomorStruk,
-      if (customerId != null) 'customer_id': customerId,
-      if (customerName != null) 'customer_name': customerName,
       'user_id': userId,
       'user_name': userName,
       'subtotal': subtotal,

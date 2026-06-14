@@ -26,10 +26,8 @@ import '../theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/sales_provider.dart';
-import '../providers/customer_provider.dart';
 import '../models/product_model.dart';
 import '../models/sales_model.dart';
-import '../models/customer_model.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -46,7 +44,6 @@ class _PosScreenState extends State<PosScreen>
   // ─── State Form Pembayaran ──────────────────────────────────
   String _metodeBayar = 'tunai';
   int _diskon = 0;
-  Customer? _selectedCustomer;
   final TextEditingController _bayarCtrl = TextEditingController();
   final TextEditingController _diskonCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
@@ -149,7 +146,6 @@ class _PosScreenState extends State<PosScreen>
       _diskonCtrl.clear();
       _catatanCtrl.clear();
       _diskon = 0;
-      _selectedCustomer = null;
       _metodeBayar = 'tunai';
     });
   }
@@ -175,8 +171,6 @@ class _PosScreenState extends State<PosScreen>
       userName: auth.currentUser?.nama ?? 'Kasir',
       bayar: _bayar,
       metodeBayar: _metodeBayar,
-      customerId: _selectedCustomer?.id,
-      customerName: _selectedCustomer?.nama,
       diskon: _diskon,
       catatan: _catatanCtrl.text.trim().isEmpty ? null : _catatanCtrl.text.trim(),
     );
@@ -1045,10 +1039,7 @@ class _PosScreenState extends State<PosScreen>
 
           const SizedBox(height: 12),
 
-          // ── Pelanggan (opsional) ──
-          _buildCustomerSelector(context),
 
-          const SizedBox(height: 12),
 
           // ── Nominal Bayar ──
           TextField(
@@ -1223,196 +1214,7 @@ class _PosScreenState extends State<PosScreen>
     );
   }
 
-  Widget _buildCustomerSelector(BuildContext context) {
-    return Consumer<CustomerProvider>(
-      builder: (context, custProv, child) {
-        return GestureDetector(
-          onTap: () => _showCustomerPicker(context, custProv),
-          child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-              color: context.color.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _selectedCustomer != null
-                    ? context.color.primary.withValues(alpha: 0.5)
-                    : context.color.outline,
-                width: _selectedCustomer != null ? 1.5 : 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.person_rounded,
-                    size: 18,
-                    color: _selectedCustomer != null
-                        ? context.color.primary
-                        : context.color.onSurfaceVariant),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _selectedCustomer?.nama ??
-                        'Pilih Pelanggan (opsional)',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: _selectedCustomer != null
-                          ? context.color.onSurface
-                          : context.color.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                if (_selectedCustomer != null)
-                  GestureDetector(
-                    onTap: () =>
-                        setState(() => _selectedCustomer = null),
-                    child: Icon(Icons.clear_rounded,
-                        size: 18,
-                        color: context.color.onSurfaceVariant),
-                  )
-                else
-                  Icon(Icons.arrow_drop_down_rounded,
-                      color: context.color.onSurfaceVariant),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
-  void _showCustomerPicker(
-      BuildContext context, CustomerProvider custProv) {
-    final searchCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setModal) => Container(
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: context.color.surfaceContainer,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 16),
-                decoration: BoxDecoration(
-                  color: context.color.outline,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text(
-                  'Pilih Pelanggan',
-                  style: GoogleFonts.inter(
-                      fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: searchCtrl,
-                  onChanged: (v) => setModal(() {}),
-                  decoration: InputDecoration(
-                    hintText: 'Cari pelanggan...',
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    isDense: true,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    // Opsi tanpa pelanggan
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: context.color.outline,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(Icons.person_off_rounded,
-                            size: 20,
-                            color: context.color.onSurfaceVariant),
-                      ),
-                      title: Text('Tanpa Pelanggan (Umum)',
-                          style: GoogleFonts.inter(fontSize: 13)),
-                      onTap: () {
-                        setState(() => _selectedCustomer = null);
-                        Navigator.pop(context);
-                      },
-                    ),
-                    const Divider(height: 8),
-                    ...custProv.searchCustomers(searchCtrl.text).map(
-                          (c) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color:
-                                    context.color.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  c.nama.substring(0, 1).toUpperCase(),
-                                  style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: context.color.primary),
-                                ),
-                              ),
-                            ),
-                            title: Text(c.nama,
-                                style: GoogleFonts.inter(
-                                    fontSize: 13, fontWeight: FontWeight.w600)),
-                            subtitle: Text(c.kontak ?? c.tipeLabel,
-                                style: GoogleFonts.inter(fontSize: 11)),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (c.tipe == 'grosir'
-                                        ? AppTheme.warning
-                                        : AppTheme.info)
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(c.tipeLabel,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: c.tipe == 'grosir'
-                                          ? AppTheme.warning
-                                          : AppTheme.info)),
-                            ),
-                            onTap: () {
-                              setState(() => _selectedCustomer = c);
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _summaryRow(
     String label,
