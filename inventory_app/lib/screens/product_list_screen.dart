@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/product_model.dart';
 import '../providers/product_provider.dart';
 import 'product_form_screen.dart';
@@ -9,7 +10,7 @@ import 'product_form_screen.dart';
 /// ============================================================
 /// HALAMAN DAFTAR BARANG - Master Data Produk (Admin only)
 /// ============================================================
-/// Fitur: Search (nama/SKU/barcode/kategori), Filter, Tambah,
+/// Fitur: Search (nama/barcode/kategori), Filter, Tambah,
 ///        Edit, Hapus, dan tampilan chip Expired/Kritis.
 /// ============================================================
 class ProductListScreen extends StatefulWidget {
@@ -81,13 +82,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         backgroundColor: context.color.surfaceContainer,
         elevation: 0,
         scrolledUnderElevation: 1,
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: Icon(Icons.menu_rounded, color: context.color.onSurface),
-            onPressed: () =>
-                ctx.findRootAncestorStateOfType<ScaffoldState>()?.openDrawer(),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Consumer<ProductProvider>(
           builder: (_, pp, x) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +114,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                 style: GoogleFonts.inter(fontSize: 14),
                 decoration: InputDecoration(
                   hintText:
-                      'Cari nama, SKU, barcode, kategori...',
+                      'Cari nama atau kategori...',
                   hintStyle: GoogleFonts.inter(
                       fontSize: 13, color: context.color.onSurfaceVariant.withValues(alpha: 0.7)),
                   prefixIcon: Icon(Icons.search_rounded,
@@ -151,7 +146,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
             Expanded(
               child: Consumer<ProductProvider>(
                 builder: (ctx, provider, _) {
-                  if (provider.isLoading) {
+                  if (provider.isLoading && provider.allProducts.isEmpty) {
                     return Center(
                         child: CircularProgressIndicator(
                             color: context.color.primary));
@@ -297,7 +292,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      '${product.sku}  •  ${product.kategori}  •  ${product.rakLokasi}',
+                      '${product.kategori}  •  ${product.rakLokasi}',
                       style: GoogleFonts.inter(
                           fontSize: 11, color: context.color.onSurfaceVariant),
                     ),
@@ -374,6 +369,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
   }
 
   Widget _buildProductThumbnail(BuildContext context, Product product) {
+    final hasImage = product.imageUrl != null && product.imageUrl!.isNotEmpty;
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -385,13 +381,36 @@ class _ProductListScreenState extends State<ProductListScreen> {
               : context.color.primary.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          Icons.inventory_2_rounded,
-          color: product.isStokKritis
-              ? Colors.red.shade400
-              : context.color.secondary,
-          size: 24,
-        ),
+        child: hasImage
+            ? CachedNetworkImage(
+                imageUrl: product.imageUrl!,
+                fit: BoxFit.cover,
+                width: 54,
+                height: 54,
+                placeholder: (context, url) => Center(
+                  child: SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Icon(
+                  Icons.inventory_2_rounded,
+                  color: product.isStokKritis
+                      ? Colors.red.shade400
+                      : Theme.of(context).colorScheme.secondary,
+                  size: 24,
+                ),
+              )
+            : Icon(
+                Icons.inventory_2_rounded,
+                color: product.isStokKritis
+                    ? Colors.red.shade400
+                    : context.color.secondary,
+                size: 24,
+              ),
       ),
     );
   }

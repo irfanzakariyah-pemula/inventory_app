@@ -10,6 +10,7 @@ import '../providers/sales_provider.dart';
 // Import Screens
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
+import 'product_list_screen.dart';
 import 'report_screen.dart';
 import 'transaction_log_screen.dart';
 import 'profile_screen.dart';
@@ -53,12 +54,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 4 Tab Utama: Beranda, Kasir, Data (Laporan/Log), Profil
   List<Widget> _getPages(bool isAdmin) {
-    return [
-      const DashboardScreen(),
-      const PosScreen(),
-      isAdmin ? const ReportScreen() : const TransactionLogScreen(),
-      const ProfileScreen(),
-    ];
+    if (isAdmin) {
+      return [
+        const DashboardScreen(),
+        const PosScreen(),
+        const ProductListScreen(),
+        const ReportScreen(),
+        const ProfileScreen(),
+      ];
+    } else {
+      return [
+        const DashboardScreen(),
+        const PosScreen(),
+        const TransactionLogScreen(),
+        const ProfileScreen(),
+      ];
+    }
   }
 
   void _onTabTapped(int index) {
@@ -72,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final isAdmin = auth.isAdmin;
     final pages = _getPages(isAdmin);
-    final isDark = context.isDarkMode;
 
     return Scaffold(
       body: IndexedStack(
@@ -102,24 +112,51 @@ class _HomeScreenState extends State<HomeScreen> {
                   index: 0,
                   isActive: _currentIndex == 0,
                 ),
-                _buildNavItem(
-                  icon: Icons.point_of_sale_rounded,
-                  label: 'Kasir',
-                  index: 1,
-                  isActive: _currentIndex == 1,
-                ),
-                _buildNavItem(
-                  icon: Icons.bar_chart_rounded,
-                  label: 'Data',
-                  index: 2,
-                  isActive: _currentIndex == 2,
-                ),
-                _buildNavItem(
-                  icon: Icons.person_rounded,
-                  label: 'Profil',
-                  index: 3,
-                  isActive: _currentIndex == 3,
-                ),
+                if (isAdmin) ...[
+                  _buildNavItem(
+                    icon: Icons.point_of_sale_rounded,
+                    label: 'Kasir',
+                    index: 1,
+                    isActive: _currentIndex == 1,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.inventory_2_rounded,
+                    label: 'Barang',
+                    index: 2,
+                    isActive: _currentIndex == 2,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.receipt_long_rounded,
+                    label: 'Laporan',
+                    index: 3,
+                    isActive: _currentIndex == 3,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.person_rounded,
+                    label: 'Profil',
+                    index: 4,
+                    isActive: _currentIndex == 4,
+                  ),
+                ] else ...[
+                  _buildNavItem(
+                    icon: Icons.point_of_sale_rounded,
+                    label: 'Kasir',
+                    index: 1,
+                    isActive: _currentIndex == 1,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.receipt_long_rounded,
+                    label: 'Log',
+                    index: 2,
+                    isActive: _currentIndex == 2,
+                  ),
+                  _buildNavItem(
+                    icon: Icons.person_rounded,
+                    label: 'Profil',
+                    index: 3,
+                    isActive: _currentIndex == 3,
+                  ),
+                ],
               ],
             ),
           ),

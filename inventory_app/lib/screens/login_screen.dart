@@ -100,9 +100,19 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF0D1117), const Color(0xFF161B22), const Color(0xFF0F172A)]
+                : [const Color(0xFFF4F6F9), const Color(0xFFE0E7FF), const Color(0xFFF4F6F9)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
             child: FadeTransition(
               opacity: _fadeAnim,
@@ -125,20 +135,20 @@ class _LoginScreenState extends State<LoginScreen>
                     Container(
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 440),
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: cardColor,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: borderColor),
-                        boxShadow: isDark
-                            ? []
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
+                        color: isDark ? cardColor.withValues(alpha: 0.8) : Colors.white.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: isDark ? borderColor : Colors.white, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark 
+                                ? Colors.black.withValues(alpha: 0.3) 
+                                : primaryColor.withValues(alpha: 0.08),
+                            blurRadius: 32,
+                            offset: const Offset(0, 12),
+                          ),
+                        ],
                       ),
                       child: Form(
                         key: _formKey,
@@ -270,19 +280,36 @@ class _LoginScreenState extends State<LoginScreen>
                             const SizedBox(height: 24),
 
                             // ── Tombol Login ─────────────────
-                            SizedBox(
+                            Container(
                               width: double.infinity,
-                              height: 52,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                gradient: _isLoading ? null : LinearGradient(
+                                  colors: isDark 
+                                      ? [primaryColor, const Color(0xFF3B82F6)] 
+                                      : [primaryColor, const Color(0xFF2563EB)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                color: _isLoading ? primaryColor.withValues(alpha: 0.5) : null,
+                                boxShadow: _isLoading || isDark ? [] : [
+                                  BoxShadow(
+                                    color: primaryColor.withValues(alpha: 0.3),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: primaryColor,
+                                  backgroundColor: Colors.transparent,
                                   foregroundColor: Colors.white,
-                                  disabledBackgroundColor:
-                                      primaryColor.withValues(alpha: 0.5),
+                                  shadowColor: Colors.transparent,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(14),
                                   ),
                                 ),
                                 child: _isLoading
@@ -345,7 +372,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      '© 2025 Smart Retail Inventory',
+                      '© 2026 Smart Retail Inventory',
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         color: textMuted.withValues(alpha: 0.6),
@@ -358,6 +385,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -368,25 +396,31 @@ class _LoginScreenState extends State<LoginScreen>
       children: [
         // Logo icon
         Container(
-          width: 68,
-          height: 68,
+          width: 72,
+          height: 72,
           decoration: BoxDecoration(
-            color: primaryColor,
-            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              colors: isDark 
+                  ? [primaryColor, const Color(0xFF3B82F6)] 
+                  : [primaryColor, const Color(0xFF2563EB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: primaryColor.withValues(alpha: isDark ? 0.4 : 0.25),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
+                color: primaryColor.withValues(alpha: isDark ? 0.4 : 0.3),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
           child: const Icon(Icons.storefront_rounded,
-              size: 34, color: Colors.white),
+              size: 36, color: Colors.white),
         ),
         const SizedBox(height: 16),
         Text(
-          'Smart Retail',
+          'Smart Retail MVP',
           style: GoogleFonts.inter(
             fontSize: 28,
             fontWeight: FontWeight.w800,

@@ -79,7 +79,7 @@ class _ReportScreenState extends State<ReportScreen>
     return Scaffold(
       backgroundColor: context.color.surface,
       appBar: _buildAppBar(context, sp),
-      body: sp.isLoading
+      body: sp.isLoading && sp.allSales.isEmpty
           ? _loadingState(context)
           : TabBarView(
               controller: _tabController,
@@ -100,13 +100,7 @@ class _ReportScreenState extends State<ReportScreen>
       elevation: 0,
       scrolledUnderElevation: 1,
       shadowColor: context.color.outline,
-      leading: Builder(
-        builder: (ctx) => IconButton(
-          icon: Icon(Icons.menu_rounded, color: context.color.onSurface),
-          onPressed: () =>
-              ctx.findRootAncestorStateOfType<ScaffoldState>()?.openDrawer(),
-        ),
-      ),
+      automaticallyImplyLeading: false,
       title: Row(
         children: [
           Container(
@@ -135,12 +129,17 @@ class _ReportScreenState extends State<ReportScreen>
         ],
       ),
       actions: [
-        IconButton(
-          icon: Icon(Icons.refresh_rounded,
-              color: const Color(0xFF8B5CF6)),
-          tooltip: 'Refresh',
-          onPressed: () =>
-              Provider.of<SalesProvider>(context, listen: false).fetchSales(),
+        Consumer<SalesProvider>(
+          builder: (ctx, sp, _) => IconButton(
+            icon: sp.isLoading 
+                ? const SizedBox(
+                    width: 20, height: 20, 
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B5CF6))
+                  )
+                : const Icon(Icons.refresh_rounded, color: Color(0xFF8B5CF6)),
+            tooltip: 'Refresh',
+            onPressed: sp.isLoading ? null : () => sp.fetchSales(),
+          ),
         ),
         const SizedBox(width: 4),
       ],

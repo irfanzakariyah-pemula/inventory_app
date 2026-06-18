@@ -46,31 +46,31 @@ class AppTheme {
   static const Color warning = Color(0xFFF59E0B); // Amber 500
   static const Color info    = Color(0xFF3B82F6); // Blue 500
 
-  // ── LIGHT MODE — Clean & Modern (Red/White) ─────────────────
-  // Palette: Red primary, clean white surface, subtle gray
-  static const _lPrimary        = Color(0xFFE60000); // Red
-  static const _lPrimaryVar     = Color(0xFFB30000); // Darker Red
-  static const _lSecondary      = Color(0xFFFF4D4D); // Light Red
-  static const _lBackground     = Color(0xFFF9FAFB); // Cool Gray 50
-  static const _lSurface        = Color(0xFFFFFFFF); // Pure White
-  static const _lSurfaceVar     = Color(0xFFF3F4F6); // Gray 100
-  static const _lOnSurface      = Color(0xFF111827); // Gray 900
-  static const _lOnSurfaceVar   = Color(0xFF6B7280); // Gray 500
-  static const _lOutline        = Color(0xFFE5E7EB); // Gray 200
+  // ── LIGHT MODE — Clean & Minimalist (White/Blue) ─────────────────
+  // Palette: Blue primary, clean white surface, subtle gray background
+  static const _lPrimary        = Color(0xFF3B82F6); // Soft Blue 500
+  static const _lPrimaryVar     = Color(0xFF2563EB); // Soft Blue 600
+  static const _lSecondary      = Color(0xFF60A5FA); // Light Blue
+  static const _lBackground     = Color(0xFFF9FAFB); // Cool Gray 50 (Slightly off-white)
+  static const _lSurface        = Color(0xFFFFFFFF); // Pure White for Cards
+  static const _lSurfaceVar     = Color(0xFFF3F4F6); // Gray 100 for Inputs
+  static const _lOnSurface      = Color(0xFF1F2937); // Gray 800 (Dark text)
+  static const _lOnSurfaceVar   = Color(0xFF6B7280); // Gray 500 (Muted text)
+  static const _lOutline        = Color(0xFFE5E7EB); // Gray 200 (Borders)
   static const _lOutlineVar     = Color(0xFFD1D5DB); // Gray 300
 
-  // ── DARK MODE — Industry Standard ────────────────────────────
-  // Palette: Pure dark backgrounds, red accents
-  static const _dPrimary        = Color(0xFFFF4D4D); // Light Red for visibility
-  static const _dPrimaryVar     = Color(0xFFE60000); // Red
-  static const _dSecondary      = Color(0xFFFF8080); // Lighter Red
-  static const _dBackground     = Color(0xFF0D1117); // True dark
-  static const _dSurface        = Color(0xFF161B22); // Surface dark
-  static const _dSurfaceVar     = Color(0xFF21262D); // Elevated surface
-  static const _dOnSurface      = Color(0xFFE6EDF3); // Near-white text
-  static const _dOnSurfaceVar   = Color(0xFF8B949E); // Muted text
-  static const _dOutline        = Color(0xFF30363D); // Subtle border
-  static const _dOutlineVar     = Color(0xFF3D444D); // Visible border
+  // ── DARK MODE — True Dark (High Contrast) ────────────────────
+  // Palette: True black/charcoal background, sky blue accent, crisp white text
+  static const _dPrimary        = Color(0xFF60A5FA); // Sky Blue 400 — visible on dark
+  static const _dPrimaryVar     = Color(0xFF3B82F6); // Blue 500
+  static const _dSecondary      = Color(0xFF93C5FD); // Sky Blue 300
+  static const _dBackground     = Color(0xFF0A0F1C); // True near-black
+  static const _dSurface        = Color(0xFF141927); // Very dark navy — card bg
+  static const _dSurfaceVar     = Color(0xFF1E2535); // Dark navy — input bg
+  static const _dOnSurface      = Color(0xFFF1F5F9); // Slate 100 — crisp white text
+  static const _dOnSurfaceVar   = Color(0xFF94A3B8); // Slate 400 — muted but readable
+  static const _dOutline        = Color(0xFF2E3A4E); // Subtle border
+  static const _dOutlineVar     = Color(0xFF3D4F66); // Slightly brighter border
 
   // ── LIGHT THEME ──────────────────────────────────────────────
   static ThemeData get lightTheme => ThemeData(
@@ -216,11 +216,16 @@ class AppTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: _dPrimary,
-        foregroundColor: const Color(0xFF0D1117),
+        foregroundColor: const Color(0xFF0A0F1C), // Dark text on bright button
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         textStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
       ),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Color(0xFF141927),
+      selectedItemColor: Color(0xFF60A5FA),
+      unselectedItemColor: Color(0xFF64748B),
     ),
   );
 }

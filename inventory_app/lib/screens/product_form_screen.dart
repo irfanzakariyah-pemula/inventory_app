@@ -1,12 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../models/product_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
+import '../main.dart';
 
 /// ============================================================
 /// HALAMAN FORM PRODUK - Tambah & Edit barang (Admin only)
@@ -16,8 +21,9 @@ import '../providers/product_provider.dart';
 ///
 /// Field yang disederhanakan:
 ///   - Nama, SKU, Kategori
-///   - Stok Awal, Lokasi Rak, Satuan
+///   - Stok Awal, Stok Kritis, Lokasi Rak, Satuan
 ///   - Harga Beli, Harga Jual (preview margin otomatis)
+///   - Tanggal Kadaluarsa (opsional)
 /// ============================================================
 class ProductFormScreen extends StatefulWidget {
   final Product? product;
@@ -32,10 +38,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   // ─── Controllers ────────────────────────────────────────────
   late final TextEditingController _namaCtrl;
-  late final TextEditingController _skuCtrl;
   late final TextEditingController _kategoriCtrl;
   late final TextEditingController _stokCtrl;
-  late final TextEditingController _rakCtrl;
+  late final TextEditingController _stokKritisCtrl;
   late final TextEditingController _hargaBeliCtrl;
   late final TextEditingController _hargaJualCtrl;
   late final TextEditingController _satuanCtrl;
@@ -44,6 +49,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _isSaving = false;
   int _marginProfit = 0;
   double _persenMargin = 0;
+  DateTime? _selectedExpiredDate;
+  String? _selectedRak;
+  File? _pickedImage;          // file gambar yang baru dipilih (belum diupload)
+  String? _existingImageUrl;   // URL gambar yang sudah ada (dari database)
+  bool _isUploadingImage = false;
 
   bool get isEditMode => widget.product != null;
 
@@ -58,18 +68,30 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     'pcs', 'kg', 'gr', 'pack', 'dus', 'botol', 'liter',
   ];
 
+  // Daftar lokasi rak
+  final List<String> _rakList = [
+    'Rak Depan', 'Rak Tengah', 'Rak Belakang', 'Gudang', 'Kulkas', 'Showcase'
+  ];
+
   @override
   void initState() {
     super.initState();
     final p = widget.product;
-    _namaCtrl      = TextEditingController(text: p?.nama ?? '');
-    _skuCtrl       = TextEditingController(text: p?.sku ?? '');
-    _kategoriCtrl  = TextEditingController(text: p?.kategori ?? '');
-    _stokCtrl      = TextEditingController(text: p != null ? '${p.stok}' : '0');
-    _rakCtrl       = TextEditingController(text: p?.rakLokasi ?? '');
-    _hargaBeliCtrl = TextEditingController(text: p != null ? '${p.hargaBeli}' : '0');
-    _hargaJualCtrl = TextEditingController(text: p != null ? '${p.hargaJual}' : '0');
-    _satuanCtrl    = TextEditingController(text: p?.satuan ?? 'pcs');
+    _namaCtrl       = TextEditingController(text: p?.nama ?? '');
+    _kategoriCtrl   = TextEditingController(text: p?.kategori ?? '');
+    _stokCtrl       = TextEditingController(text: p != null ? '${p.stok}' : '0');
+    _stokKritisCtrl = TextEditingController(text: p != null ? '${p.stokMinimum}' : '0');
+    _hargaBeliCtrl  = TextEditingController(text: p != null ? '${p.hargaBeli}' : '0');
+    _hargaJualCtrl  = TextEditingController(text: p != null ? '${p.hargaJual}' : '0');
+    _satuanCtrl     = TextEditingController(text: p?.satuan ?? 'pcs');
+
+    _selectedExpiredDate = p?.expiredDate;
+    _selectedRak = p?.rakLokasi;
+    _existingImageUrl = p?.imageUrl;
+
+    if (_selectedRak != null && _selectedRak!.isNotEmpty && !_rakList.contains(_selectedRak)) {
+      _rakList.add(_selectedRak!);
+    }
 
     _updateMargin();
     _hargaBeliCtrl.addListener(_updateMargin);
@@ -88,14 +110,157 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   @override
   void dispose() {
     _namaCtrl.dispose();
-    _skuCtrl.dispose();
     _kategoriCtrl.dispose();
     _stokCtrl.dispose();
-    _rakCtrl.dispose();
+    _stokKritisCtrl.dispose();
     _hargaBeliCtrl.dispose();
     _hargaJualCtrl.dispose();
     _satuanCtrl.dispose();
     super.dispose();
+  }
+
+  // ─── Image Picker ───────────────────────────────────────────
+  Future<void> _pickImage(ImageSource source) async {
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(
+      source: source,
+      imageQuality: 75,
+      maxWidth: 800,
+    );
+    if (xfile != null) {
+      setState(() => _pickedImage = File(xfile.path));
+    }
+  }
+
+  void _showImageSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('Pilih Sumber Gambar',
+                style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: context.color.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(Icons.camera_alt_rounded, color: context.color.primary, size: 20),
+              ),
+              title: Text('Kamera', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              subtitle: Text('Foto langsung dari kamera', style: GoogleFonts.inter(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.purple.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library_rounded, color: Colors.purple, size: 20),
+              ),
+              title: Text('Galeri', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              subtitle: Text('Pilih dari galeri foto', style: GoogleFonts.inter(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            if (_pickedImage != null || _existingImageUrl != null)
+              ListTile(
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                ),
+                title: Text('Hapus Gambar', style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600, color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _pickedImage = null;
+                    _existingImageUrl = null;
+                  });
+                },
+              ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Upload Image ke Supabase Storage ─────────────────────────
+  Future<String?> _uploadImageToSupabase() async {
+    if (_pickedImage == null) return _existingImageUrl; // tidak ada gambar baru
+
+    setState(() => _isUploadingImage = true);
+    try {
+      final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final bytes = await _pickedImage!.readAsBytes();
+
+      await supabase.storage
+          .from('product-images')
+          .uploadBinary(fileName, bytes);
+
+      final url = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+
+      setState(() => _isUploadingImage = false);
+      return url;
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal upload gambar: $e', style: GoogleFonts.inter()),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return _existingImageUrl; // fallback ke URL lama jika gagal
+    }
+  }
+
+  // ─── Date Picker ──────────────────────────────────────────────
+  Future<void> _pickExpiredDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedExpiredDate ?? now.add(const Duration(days: 30)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 10),
+      helpText: 'Pilih Tanggal Kadaluarsa',
+      confirmText: 'Pilih',
+      cancelText: 'Batal',
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+    );
+    if (picked != null) {
+      setState(() => _selectedExpiredDate = picked);
+    }
   }
 
   // ─── Save ─────────────────────────────────────────────────────
@@ -108,20 +273,23 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
 
     try {
+      // Upload gambar dulu jika ada yang baru dipilih
+      final imageUrl = await _uploadImageToSupabase();
+
       final product = Product(
         id: widget.product?.id ?? '',
         nama: _namaCtrl.text.trim(),
-        sku: _skuCtrl.text.trim(),
-        barcode: _skuCtrl.text.trim(),
+        sku: isEditMode ? widget.product!.sku : 'SKU-${DateTime.now().millisecondsSinceEpoch}',
+        barcode: isEditMode ? widget.product!.barcode : '',
         kategori: _kategoriCtrl.text.trim(),
         stok: int.tryParse(_stokCtrl.text.trim()) ?? 0,
-        stokMinimum: 0,
-        rakLokasi: _rakCtrl.text.trim(),
+        stokMinimum: int.tryParse(_stokKritisCtrl.text.trim()) ?? 0,
+        rakLokasi: _selectedRak ?? 'Gudang',
         hargaBeli: int.tryParse(_hargaBeliCtrl.text.trim()) ?? 0,
         hargaJual: int.tryParse(_hargaJualCtrl.text.trim()) ?? 0,
         satuan: _satuanCtrl.text.trim().isEmpty ? 'pcs' : _satuanCtrl.text.trim(),
-        expiredDate: null,
-        imageUrl: null,
+        expiredDate: _selectedExpiredDate,
+        imageUrl: imageUrl,
       );
 
       if (isEditMode) {
@@ -255,19 +423,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 title: 'Informasi Barang',
                 icon: Icons.inventory_2_rounded,
                 children: [
+                  // ── Foto Barang ──
+                  _buildImagePicker(),
+                  const SizedBox(height: 14),
                   _buildField(
                     controller: _namaCtrl,
                     label: 'Nama Barang *',
                     hint: 'Contoh: Susu Ultra Milk 1L',
                     icon: Icons.label_rounded,
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 14),
-                  _buildField(
-                    controller: _skuCtrl,
-                    label: 'SKU (Kode Internal) *',
-                    hint: 'MNM-UML-001',
-                    icon: Icons.qr_code_2_rounded,
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 14),
@@ -320,23 +483,92 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 title: 'Data Stok',
                 icon: Icons.inventory_rounded,
                 children: [
-                  _buildField(
-                    controller: _stokCtrl,
-                    label: isEditMode ? 'Stok Saat Ini' : 'Stok Awal *',
-                    hint: '0',
-                    icon: Icons.numbers_rounded,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    validator: _numberValidator,
-                    readOnly: isEditMode,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildField(
+                          controller: _stokCtrl,
+                          label: isEditMode ? 'Stok Saat Ini' : 'Stok Awal *',
+                          hint: '0',
+                          icon: Icons.numbers_rounded,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          validator: _numberValidator,
+                          readOnly: isEditMode,
+                          isNumeric: true,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildField(
+                          controller: _stokKritisCtrl,
+                          label: 'Stok Kritis *',
+                          hint: '0',
+                          icon: Icons.warning_amber_rounded,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          validator: _numberValidator,
+                          isNumeric: true,
+                          iconColor: Colors.orange.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Info stok kritis
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(children: [
+                      Icon(Icons.info_outline_rounded,
+                          color: Colors.orange.shade600, size: 15),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Sistem akan memberi peringatan jika stok di bawah batas kritis.',
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: Colors.orange.shade700),
+                        ),
+                      ),
+                    ]),
                   ),
                   const SizedBox(height: 14),
-                  _buildField(
-                    controller: _rakCtrl,
-                    label: 'Lokasi Rak *',
-                    hint: 'Contoh: C2-03',
-                    icon: Icons.location_on_rounded,
-                    validator: _requiredValidator,
+                  DropdownButtonFormField<String>(
+                    value: _selectedRak,
+                    items: _rakList.map((rak) {
+                      return DropdownMenuItem(
+                        value: rak,
+                        child: Text(rak, style: GoogleFonts.inter(fontSize: 14)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() => _selectedRak = val);
+                    },
+                    validator: (val) => val == null ? 'Pilih lokasi rak' : null,
+                    decoration: InputDecoration(
+                      labelText: 'Lokasi Rak *',
+                      prefixIcon: Icon(Icons.location_on_rounded, size: 18, color: context.color.onSurfaceVariant.withValues(alpha: 0.7)),
+                      labelStyle: GoogleFonts.inter(fontSize: 12, color: context.color.onSurfaceVariant),
+                      filled: true,
+                      fillColor: context.color.surface,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: context.color.secondary, width: 1.5),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.red.shade300),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   _buildField(
@@ -420,6 +652,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         ],
                         validator: _numberValidator,
                         prefixText: 'Rp ',
+                        isNumeric: true,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -435,6 +668,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         ],
                         validator: _numberValidator,
                         prefixText: 'Rp ',
+                        isNumeric: true,
                       ),
                     ),
                   ]),
@@ -488,6 +722,98 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+
+              // ====== SEKSI 4: TANGGAL KADALUARSA ======
+              _sectionCard(
+                title: 'Tanggal Kadaluarsa',
+                icon: Icons.event_rounded,
+                children: [
+                  GestureDetector(
+                    onTap: _pickExpiredDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: context.color.surface,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _selectedExpiredDate != null
+                              ? context.color.primary.withValues(alpha: 0.5)
+                              : context.color.outline.withValues(alpha: 0.3),
+                          width: _selectedExpiredDate != null ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.calendar_month_rounded,
+                            size: 18,
+                            color: _selectedExpiredDate != null
+                                ? context.color.primary
+                                : context.color.onSurfaceVariant.withValues(alpha: 0.7),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tanggal Kadaluarsa',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    color: context.color.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _selectedExpiredDate != null
+                                      ? DateFormat('dd MMMM yyyy', 'id_ID')
+                                          .format(_selectedExpiredDate!)
+                                      : 'Tidak ada (opsional)',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: _selectedExpiredDate != null
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: _selectedExpiredDate != null
+                                        ? context.color.onSurface
+                                        : context.color.outline,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_selectedExpiredDate != null)
+                            GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedExpiredDate = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(Icons.close_rounded,
+                                    size: 16, color: Colors.red.shade400),
+                              ),
+                            )
+                          else
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: context.color.outline,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_selectedExpiredDate != null) ...[
+                    const SizedBox(height: 10),
+                    _buildExpiredDateInfo(),
+                  ],
+                ],
+              ),
               const SizedBox(height: 28),
 
               // ====== TOMBOL SIMPAN ======
@@ -528,7 +854,160 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     );
   }
 
+  Widget _buildExpiredDateInfo() {
+    final sisa = _selectedExpiredDate!
+        .difference(DateTime.now())
+        .inDays;
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    IconData iconData;
+    String label;
+
+    if (sisa < 0) {
+      bgColor = Colors.red.shade50;
+      borderColor = Colors.red.shade200;
+      textColor = Colors.red.shade700;
+      iconData = Icons.error_outline_rounded;
+      label = 'Sudah kadaluarsa!';
+    } else if (sisa <= 30) {
+      bgColor = Colors.orange.shade50;
+      borderColor = Colors.orange.shade200;
+      textColor = Colors.orange.shade700;
+      iconData = Icons.warning_amber_rounded;
+      label = 'Mendekati kadaluarsa ($sisa hari lagi)';
+    } else {
+      bgColor = Colors.green.shade50;
+      borderColor = Colors.green.shade200;
+      textColor = Colors.green.shade700;
+      iconData = Icons.check_circle_outline_rounded;
+      label = 'Masih $sisa hari lagi';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(children: [
+        Icon(iconData, size: 15, color: textColor),
+        const SizedBox(width: 8),
+        Text(label,
+            style: GoogleFonts.inter(fontSize: 11, color: textColor)),
+      ]),
+    );
+  }
+
   // ─── Helper Widgets ──────────────────────────────────────────
+
+  Widget _buildImagePicker() {
+    final hasImage = _pickedImage != null || _existingImageUrl != null;
+    return GestureDetector(
+      onTap: _isUploadingImage ? null : _showImageSourceSheet,
+      child: Container(
+        width: double.infinity,
+        height: 160,
+        decoration: BoxDecoration(
+          color: context.color.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: hasImage
+                ? context.color.primary.withValues(alpha: 0.5)
+                : context.color.outline.withValues(alpha: 0.3),
+            width: hasImage ? 1.5 : 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: _isUploadingImage
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: context.color.primary),
+                  const SizedBox(height: 10),
+                  Text('Mengupload gambar...',
+                      style: GoogleFonts.inter(fontSize: 12, color: context.color.onSurfaceVariant)),
+                ],
+              )
+            : _pickedImage != null
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.file(_pickedImage!, fit: BoxFit.cover),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: GestureDetector(
+                          onTap: _showImageSourceSheet,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.edit_rounded, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : _existingImageUrl != null
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          CachedNetworkImage(
+                            imageUrl: _existingImageUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Center(
+                              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
+                            ),
+                            errorWidget: (context, url, error) => Center(
+                              child: Icon(Icons.broken_image_rounded, size: 40, color: Theme.of(context).colorScheme.outline),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8, right: 8,
+                            child: GestureDetector(
+                              onTap: _showImageSourceSheet,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.edit_rounded, color: Colors.white, size: 16),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 52, height: 52,
+                            decoration: BoxDecoration(
+                              color: context.color.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(Icons.add_photo_alternate_rounded,
+                                size: 26, color: context.color.primary),
+                          ),
+                          const SizedBox(height: 10),
+                          Text('Tambah Foto Barang',
+                              style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.color.primary)),
+                          const SizedBox(height: 4),
+                          Text('Opsional • Kamera atau Galeri',
+                              style: GoogleFonts.inter(
+                                  fontSize: 11, color: context.color.onSurfaceVariant)),
+                        ],
+                      ),
+      ),
+    );
+  }
 
   Widget _sectionCard({
     required String title,
@@ -587,6 +1066,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     String? Function(String?)? validator,
     bool readOnly = false,
     String? prefixText,
+    bool isNumeric = false,
+    Color? iconColor,
   }) {
     return TextFormField(
       controller: controller,
@@ -595,13 +1076,23 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       style: GoogleFonts.inter(fontSize: 14),
       validator: validator,
       readOnly: readOnly,
+      // Saat field angka di-tap: pilih semua teks agar mudah dihapus/diganti
+      onTap: isNumeric && !readOnly
+          ? () {
+              controller.selection = TextSelection(
+                baseOffset: 0,
+                extentOffset: controller.text.length,
+              );
+            }
+          : null,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         prefixText: prefixText,
         prefixIcon: Icon(icon,
             size: 18,
-            color: context.color.onSurfaceVariant.withValues(alpha: 0.7)),
+            color: iconColor ??
+                context.color.onSurfaceVariant.withValues(alpha: 0.7)),
         labelStyle: GoogleFonts.inter(
             fontSize: 12, color: context.color.onSurfaceVariant),
         hintStyle:

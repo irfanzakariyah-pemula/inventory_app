@@ -166,32 +166,7 @@ class ProfileScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // ────── PENGATURAN ─────────────────────────────────
-            _sectionLabel('PENGATURAN', textMuted),
-            const SizedBox(height: 8),
-            _buildCard(context, cardColor, borderColor, [
-              _menuTile(context,
-                icon: Icons.notifications_rounded,
-                iconColor: AppTheme.warning,
-                label: 'Notifikasi',
-                subtitle: 'Atur preferensi notifikasi',
-                textPrimary: textPrimary, textMuted: textMuted,
-                borderColor: borderColor,
-                onTap: () => _showComingSoon(context),
-              ),
-              _divider(borderColor),
-              _menuTile(context,
-                icon: Icons.lock_rounded,
-                iconColor: const Color(0xFF4A6FA5),
-                label: 'Ubah Password',
-                subtitle: 'Perbarui kata sandi akun',
-                textPrimary: textPrimary, textMuted: textMuted,
-                borderColor: borderColor,
-                onTap: () => _showComingSoon(context),
-              ),
-            ]),
 
-            const SizedBox(height: 16),
 
             // ────── LAINNYA ────────────────────────────────────
             _sectionLabel('LAINNYA', textMuted),
@@ -258,8 +233,8 @@ class ProfileScreen extends StatelessWidget {
 
   // ── Hero Card ─────────────────────────────────────────────────
   Widget _buildHeroCard(BuildContext context, AuthProvider auth, user, bool isDark) {
-    final initial = (user?.nama ?? 'U').trim().isNotEmpty
-        ? (user!.nama[0].toUpperCase())
+    final initial = (user?.nama != null && user!.nama.trim().isNotEmpty)
+        ? (user.nama[0].toUpperCase())
         : 'U';
 
     return Container(

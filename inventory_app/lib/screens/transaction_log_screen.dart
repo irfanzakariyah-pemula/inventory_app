@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/product_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/transaction_provider.dart';
+import 'stock_update_screen.dart';
 
 /// ============================================================
 /// HALAMAN LOG TRANSAKSI - Riwayat perubahan stok (Admin only)
@@ -30,13 +31,7 @@ class TransactionLogScreen extends StatelessWidget {
         backgroundColor: context.color.surfaceContainer,
         elevation: 0,
         scrolledUnderElevation: 1,
-        leading: Builder(
-          builder: (ctx) => IconButton(
-            icon: Icon(Icons.menu_rounded, color: context.color.onSurface),
-            onPressed: () =>
-                ctx.findRootAncestorStateOfType<ScaffoldState>()?.openDrawer(),
-          ),
-        ),
+        automaticallyImplyLeading: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -129,6 +124,21 @@ class TransactionLogScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const StockUpdateScreen()),
+          );
+        },
+        backgroundColor: context.color.primary,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.edit_note_rounded),
+        label: Text(
+          'Update Stok',
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
         ),
       ),
     );

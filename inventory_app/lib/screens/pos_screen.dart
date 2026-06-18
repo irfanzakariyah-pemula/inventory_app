@@ -358,13 +358,7 @@ class _PosScreenState extends State<PosScreen>
     return AppBar(
       backgroundColor: context.color.surfaceContainer,
       elevation: 0,
-      leading: Builder(
-        builder: (ctx) => IconButton(
-          icon: Icon(Icons.menu_rounded, color: context.color.onSurface),
-          onPressed: () =>
-              ctx.findRootAncestorStateOfType<ScaffoldState>()?.openDrawer(),
-        ),
-      ),
+      automaticallyImplyLeading: false,
       title: Row(
         children: [
           Container(
@@ -478,7 +472,7 @@ class _PosScreenState extends State<PosScreen>
                 onChanged: (_) => setState(() {}),
                 style: GoogleFonts.inter(fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: 'Cari produk (nama, SKU, barcode)...',
+                  hintText: 'Cari produk (nama atau kategori)...',
                   hintStyle: GoogleFonts.inter(
                       fontSize: 14,
                       color: context.color.onSurfaceVariant),

@@ -1,3 +1,5 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -7,13 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/sales_provider.dart';
 import '../models/product_model.dart';
-
-// Import Screens untuk Grid Menu
-import 'pos_screen.dart';
-import 'product_list_screen.dart';
-import 'stock_update_screen.dart';
-import 'transaction_log_screen.dart';
-import 'report_screen.dart';
+import 'expired_list_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -21,507 +17,756 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
-    final productProv = Provider.of<ProductProvider>(context);
-    final salesProv = Provider.of<SalesProvider>(context);
     final user = auth.currentUser;
     final isAdmin = auth.isAdmin;
 
     return Scaffold(
       backgroundColor: context.color.surface,
       body: SafeArea(
-        child: productProv.isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : RefreshIndicator(
-                color: context.color.primary,
-                backgroundColor: context.color.surfaceContainer,
-                onRefresh: () async {
-                  await Future.wait([
-                    productProv.fetchProducts(),
-                    salesProv.fetchSales(),
-                  ]);
-                },
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // ── TOP BAR (Help & Theme) ──
-                      _buildTopBar(context),
-                      const SizedBox(height: 24),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            final pp = Provider.of<ProductProvider>(context, listen: false);
+            final sp = Provider.of<SalesProvider>(context, listen: false);
+            await pp.fetchProducts();
+            await sp.fetchSales();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── HEADER ──
+                _buildHeader(context, user?.nama ?? 'User', isAdmin),
+                const SizedBox(height: 24),
 
-                      // ── HEADER GREETING ──
-                      Text(
-                        'Hi ${user?.nama?.split(" ").first ?? 'User'}',
-                        style: GoogleFonts.inter(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                          color: context.color.onSurface,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
+                // ── KPI CARDS ──
+                _buildKpiCardsRow(context),
+                const SizedBox(height: 24),
 
-                      // ── SUMMARY CARD (Omset & Transaksi) ──
-                      _buildSummaryCard(context, salesProv),
-                      const SizedBox(height: 28),
+                // ── GRAFIK PENJUALAN ──
+                _buildChartSection(context),
+                const SizedBox(height: 24),
 
-                      // ── GRID MENU (Book and explore style) ──
-                      Text(
-                        'Akses Cepat',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: context.color.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildGridMenu(context, isAdmin),
-                      const SizedBox(height: 32),
+                // ── ALERT BANNER ──
+                _buildAlertBanner(context),
+                const SizedBox(height: 24),
 
-                      // ── HORIZONTAL CARDS (Stok Kritis) ──
-                      if (productProv.stokKritis.isNotEmpty) ...[
-                        Text(
-                          'Stok Kritis Perlu Perhatian',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: context.color.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildCriticalStockHorizontal(context, productProv.stokKritis),
-                        const SizedBox(height: 32),
-                      ],
+                // ── STOK KRITIS ──
+                _buildStokKritisSection(context),
+                const SizedBox(height: 24),
 
-                      // ── TOP PRODUCTS (Make your trip complete style) ──
-                      if (salesProv.top5Terlaris.isNotEmpty) ...[
-                        Text(
-                          'Produk Terlaris Bulan Ini',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: context.color.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildTopProductsHorizontal(context, salesProv.top5Terlaris),
-                        const SizedBox(height: 20),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+                // ── MENDEKATI KEDALUWARSA ──
+                _buildExpiredSection(context),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  // ============================================================
-  // WIDGETS
-  // ============================================================
-
-  Widget _buildTopBar(BuildContext context) {
+  Widget _buildHeader(BuildContext context, String nama, bool isAdmin) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Bantuan Chip
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: context.color.surfaceContainer,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.color.outline.withValues(alpha: 0.5)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.help_outline_rounded,
-                  size: 16, color: context.color.onSurfaceVariant),
-              const SizedBox(width: 6),
               Text(
-                'Bantuan',
+                'Selamat Datang 👋',
                 style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: context.color.onSurface,
+                  fontSize: 14,
+                  color: context.color.onSurfaceVariant,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                nama.split(" ").first.toLowerCase(),
+                style: GoogleFonts.inter(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: context.color.onSurface,
+                  height: 1.1,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        // Switch Theme Button (Mirip Card Button merah)
-        GestureDetector(
-          onTap: () => Provider.of<ThemeProvider>(context, listen: false).toggleTheme(),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.color.primary,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: context.color.primary.withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  context.isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                  size: 16,
-                  color: Colors.white,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Tema',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+        Row(
+          children: [
+            // Tombol Refresh
+            Consumer2<ProductProvider, SalesProvider>(
+              builder: (ctx, pp, sp, _) {
+                final isRefreshing = pp.isLoading || sp.isLoading;
+                return Material(
+                  color: context.color.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: isRefreshing ? null : () async {
+                      await pp.fetchProducts();
+                      await sp.fetchSales();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.5)),
+                      ),
+                      child: isRefreshing 
+                          ? SizedBox(
+                              width: 20, 
+                              height: 20, 
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2, 
+                                color: context.color.primary,
+                              ),
+                            )
+                          : Icon(Icons.refresh_rounded, size: 20, color: context.color.primary),
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
+            const SizedBox(width: 10),
+            // Badge role
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: context.color.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_rounded, size: 14, color: context.color.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    isAdmin ? 'Administrator' : 'Petugas Gudang',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: context.color.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(BuildContext context, SalesProvider sp) {
-    final fmtRp = NumberFormat.compactCurrency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
+  Widget _buildKpiCardsRow(BuildContext context) {
+    return Consumer2<ProductProvider, SalesProvider>(
+      builder: (ctx, productProv, salesProv, _) {
+        final products = productProv.allProducts;
+        final totalBarang = products.length;
+        final stokKritis = products.where((p) => p.isStokKritis).length;
+        final mendekatiExpired = products.where((p) => p.isMendekatiExpired || p.isSudahExpired).length;
+        final now = DateTime.now();
+        final transaksiHarian = salesProv.allSales.where((s) {
+          return s.createdAt.year == now.year && s.createdAt.month == now.month && s.createdAt.day == now.day;
+        }).length;
 
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _kpiCard(
+              context,
+              icon: Icons.inventory_2_rounded,
+              iconColor: const Color(0xFF3B82F6), // Blue
+              iconBgColor: const Color(0xFFEFF6FF),
+              value: totalBarang.toString(),
+              label: 'Total\nBarang',
+            ),
+            _kpiCard(
+              context,
+              icon: Icons.warning_amber_rounded,
+              iconColor: const Color(0xFFEF4444), // Red
+              iconBgColor: const Color(0xFFFEF2F2),
+              value: stokKritis.toString(),
+              label: 'Stok\nKritis',
+              valueColor: const Color(0xFFEF4444),
+            ),
+            _kpiCard(
+              context,
+              icon: Icons.event_busy_rounded,
+              iconColor: const Color(0xFFEF4444), // Red
+              iconBgColor: const Color(0xFFFEF2F2),
+              value: mendekatiExpired.toString(),
+              label: 'Mendekati\nExpired',
+              valueColor: const Color(0xFFEF4444),
+            ),
+            _kpiCard(
+              context,
+              icon: Icons.swap_horiz_rounded,
+              iconColor: const Color(0xFF10B981), // Green
+              iconBgColor: const Color(0xFFECFDF5),
+              value: transaksiHarian.toString(),
+              label: 'Transaksi\nHari Ini',
+              valueColor: const Color(0xFF10B981),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _kpiCard(BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBgColor,
+    required String value,
+    required String label,
+    Color? valueColor,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: (MediaQuery.of(context).size.width - 40 - 36) / 4, // 4 items, 3 gaps of 12
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: context.color.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          )
         ],
-        border: Border.all(color: context.color.outline.withValues(alpha: 0.3)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          // Omset (Sisi Kiri)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Omset Hari Ini',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: context.color.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  fmtRp.format(sp.omsetHariIni),
-                  style: GoogleFonts.inter(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: context.color.onSurface,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: valueColor ?? context.color.onSurface,
             ),
           ),
-          // Divider
-          Container(
-            height: 40,
-            width: 1,
-            color: context.color.outline,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          // Transaksi (Sisi Kanan)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Transaksi',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: context.color.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Text(
-                    '${sp.jumlahTransaksiHariIni}',
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: context.color.onSurface,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: context.color.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.arrow_upward_rounded,
-                        size: 14, color: context.color.primary),
-                  ),
-                ],
-              ),
-            ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: context.color.onSurfaceVariant,
+              height: 1.2,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGridMenu(BuildContext context, bool isAdmin) {
-    List<Map<String, dynamic>> menuItems = [];
+  Widget _buildAlertBanner(BuildContext context) {
+    return Consumer<ProductProvider>(
+      builder: (ctx, productProv, _) {
+        final expiredCount = productProv.allProducts.where((p) => p.isMendekatiExpired || p.isSudahExpired).length;
+        if (expiredCount == 0) return const SizedBox.shrink();
 
-    if (isAdmin) {
-      menuItems = [
-        {'title': 'Kasir', 'icon': Icons.point_of_sale_rounded, 'screen': const PosScreen()},
-        {'title': 'Barang', 'icon': Icons.inventory_2_rounded, 'screen': const ProductListScreen()},
-        {'title': 'Laporan', 'icon': Icons.bar_chart_rounded, 'screen': const ReportScreen()},
-        {'title': 'Log Stok', 'icon': Icons.receipt_long_rounded, 'screen': const TransactionLogScreen()},
-        {'title': 'Update Stok', 'icon': Icons.qr_code_scanner_rounded, 'screen': const StockUpdateScreen()},
-      ];
-    } else {
-      menuItems = [
-        {'title': 'Kasir', 'icon': Icons.point_of_sale_rounded, 'screen': const PosScreen()},
-        {'title': 'Update Stok', 'icon': Icons.qr_code_scanner_rounded, 'screen': const StockUpdateScreen()},
-        {'title': 'Log Stok', 'icon': Icons.receipt_long_rounded, 'screen': const TransactionLogScreen()},
-      ];
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: menuItems.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
-      ),
-      itemBuilder: (context, index) {
-        final item = menuItems[index];
         return GestureDetector(
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => item['screen'] as Widget),
-            );
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpiredListScreen()));
           },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: context.color.surfaceContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  border: Border.all(color: context.color.outline.withValues(alpha: 0.2)),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.event_busy_rounded, color: Color(0xFFEF4444), size: 20),
                 ),
-                child: Icon(
-                  item['icon'] as IconData,
-                  color: context.color.primary, // Ikon merah
-                  size: 26,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Barang Mendekati Kedaluwarsa!',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFB91C1C),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$expiredCount barang akan expired dalam 30 hari ke depan',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: const Color(0xFF991B1B),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                item['title'] as String,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: context.color.onSurface,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFFB91C1C)),
+              ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _buildCriticalStockHorizontal(BuildContext context, List<ProductModel> kritis) {
-    return SizedBox(
-      height: 140,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: kritis.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final p = kritis[index];
-          return Container(
-            width: 260,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: context.color.surfaceContainer,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-              border: Border.all(color: context.color.outline.withValues(alpha: 0.3)),
-            ),
-            child: Row(
+  Widget _buildStokKritisSection(BuildContext context) {
+    return Consumer<ProductProvider>(
+      builder: (ctx, productProv, _) {
+        final kritisList = productProv.allProducts.where((p) => p.isStokKritis).toList()
+          ..sort((a, b) => a.stok.compareTo(b.stok));
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Icon / Indikator
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: context.color.error.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.warning_amber_rounded, color: context.color.error),
+                Row(
+                  children: [
+                    Text(
+                      'Stok Kritis',
+                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: context.color.onSurface),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        kritisList.length.toString(),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFEF4444)),
+                      ),
+                    )
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        p.nama,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: context.color.onSurface,
+                Text(
+                  'Lihat Semua',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: context.color.onSurfaceVariant),
+                )
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (kritisList.isEmpty)
+              _emptyState(context, 'Tidak ada stok kritis')
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: kritisList.length > 3 ? 3 : kritisList.length,
+                separatorBuilder: (ctx, idx) => const SizedBox(height: 12),
+                itemBuilder: (ctx, index) {
+                  final p = kritisList[index];
+                  return _buildStokKritisItem(context, p);
+                },
+              )
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStokKritisItem(BuildContext context, Product p) {
+    final hasImage = p.imageUrl != null && p.imageUrl!.isNotEmpty;
+    // Calculate progress ratio
+    double ratio = p.stok / p.stokMinimum;
+    if (ratio > 1.0) ratio = 1.0;
+    if (ratio < 0.0) ratio = 0.0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.color.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 48,
+              height: 48,
+              color: context.color.surfaceContainerLow,
+              child: hasImage
+                  ? CachedNetworkImage(
+                      imageUrl: p.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (ctx, url, err) => Icon(Icons.inventory_2_rounded, color: context.color.outline),
+                    )
+                  : Icon(Icons.inventory_2_rounded, color: context.color.outline),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.nama,
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: context.color.onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${p.kategori} • Rak ${p.rakLokasi}',
+                  style: GoogleFonts.inter(fontSize: 11, color: context.color.onSurfaceVariant),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: ratio,
+                          minHeight: 4,
+                          backgroundColor: context.color.outlineVariant.withValues(alpha: 0.5),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFEF4444)),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Sisa Stok: ${p.stok} ${p.satuan}',
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.color.error,
-                        ),
-                      ),
-                      Text(
-                        'Batas Minimum: ${p.stokMinimum}',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          color: context.color.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 24), // Space before numbers
+                  ],
                 ),
               ],
             ),
-          );
-        },
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                p.stok.toString(),
+                style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFEF4444)),
+              ),
+              Text(
+                'min: ${p.stokMinimum}',
+                style: GoogleFonts.inter(fontSize: 10, color: context.color.onSurfaceVariant),
+              ),
+            ],
+          )
+        ],
       ),
     );
   }
 
-  Widget _buildTopProductsHorizontal(BuildContext context, List<Map<String, dynamic>> topProducts) {
-    return SizedBox(
-      height: 90,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: topProducts.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final item = topProducts[index];
-          return Container(
-            width: 200,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: context.color.surfaceContainer,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: context.color.outline.withValues(alpha: 0.5)),
-            ),
-            child: Row(
+  Widget _buildExpiredSection(BuildContext context) {
+    return Consumer<ProductProvider>(
+      builder: (ctx, productProv, _) {
+        final expiredList = productProv.allProducts.where((p) => p.isMendekatiExpired || p.isSudahExpired).toList()
+          ..sort((a, b) => (a.sisaHariExpired ?? 999).compareTo(b.sisaHariExpired ?? 999));
+
+        return Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Rank number
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: context.color.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                        color: context.color.primary,
-                      ),
+                Row(
+                  children: [
+                    Text(
+                      'Mendekati Kedaluwarsa',
+                      style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: context.color.onSurface),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        expiredList.length.toString(),
+                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: const Color(0xFFEF4444)),
+                      ),
+                    )
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        item['nama'] as String,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.color.onSurface,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.check_circle_rounded, size: 10, color: context.color.tertiary),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${item['jumlahTerjual']} terjual',
-                            style: GoogleFonts.inter(
-                              fontSize: 10,
-                              color: context.color.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                GestureDetector(
+                  onTap: () {
+                     Navigator.push(context, MaterialPageRoute(builder: (_) => const ExpiredListScreen()));
+                  },
+                  child: Text(
+                    'Lihat Semua',
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: context.color.onSurfaceVariant),
+                  ),
+                )
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (expiredList.isEmpty)
+              _emptyState(context, 'Aman! Tidak ada produk hampir expired.')
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: expiredList.length > 3 ? 3 : expiredList.length,
+                separatorBuilder: (ctx, idx) => const SizedBox(height: 12),
+                itemBuilder: (ctx, index) {
+                  final p = expiredList[index];
+                  return _buildExpiredItem(context, p);
+                },
+              )
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExpiredItem(BuildContext context, Product p) {
+    final hasImage = p.imageUrl != null && p.imageUrl!.isNotEmpty;
+    final isExpired = p.isSudahExpired;
+    final sisaHari = p.sisaHariExpired ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.color.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 48,
+              height: 48,
+              color: context.color.surfaceContainerLow,
+              child: hasImage
+                  ? CachedNetworkImage(
+                      imageUrl: p.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (ctx, url, err) => Icon(Icons.inventory_2_rounded, color: context.color.outline),
+                    )
+                  : Icon(Icons.inventory_2_rounded, color: context.color.outline),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  p.nama,
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: context.color.onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'EAN ${p.barcode} • Rak ${p.rakLokasi}',
+                  style: GoogleFonts.inter(fontSize: 11, color: context.color.onSurfaceVariant),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isExpired 
+                    ? 'EXPIRED: ${DateFormat('dd MMM yyyy').format(p.expiredDate!)}'
+                    : 'Expired: ${DateFormat('dd MMM yyyy').format(p.expiredDate!)}',
+                  style: GoogleFonts.inter(
+                    fontSize: 11, 
+                    fontWeight: isExpired ? FontWeight.w700 : FontWeight.w500,
+                    color: const Color(0xFFDC2626),
                   ),
                 ),
               ],
             ),
-          );
-        },
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                isExpired ? 'EXPIRED' : sisaHari.toString(),
+                style: GoogleFonts.inter(
+                  fontSize: isExpired ? 14 : 18, 
+                  fontWeight: FontWeight.w800, 
+                  color: const Color(0xFFEF4444)
+                ),
+              ),
+              if (!isExpired)
+                Text(
+                  'hari lagi',
+                  style: GoogleFonts.inter(fontSize: 10, color: const Color(0xFFDC2626)),
+                ),
+            ],
+          )
+        ],
       ),
+    );
+  }
+
+  Widget _emptyState(BuildContext context, String msg) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: context.color.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Center(
+        child: Text(
+          msg,
+          style: GoogleFonts.inter(fontSize: 13, color: context.color.onSurfaceVariant),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChartSection(BuildContext context) {
+    return Consumer<SalesProvider>(
+      builder: (ctx, salesProv, _) {
+        final data = salesProv.omset7Hari.reversed.toList(); // kiri ke kanan: terlama ke terbaru
+
+        double maxTotal = 0;
+        for (var d in data) {
+          if (d['total'] > maxTotal) {
+            maxTotal = d['total'].toDouble();
+          }
+        }
+        
+        maxTotal = maxTotal * 1.2; // Tambahkan ruang kosong di atas
+        if (maxTotal == 0) maxTotal = 1000;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: context.color.surfaceContainer,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.color.outlineVariant.withValues(alpha: 0.3)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Omset 7 Hari Terakhir',
+                style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: context.color.onSurface),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                height: 200,
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: maxTotal,
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipColor: (_) => context.color.primary,
+                        tooltipPadding: const EdgeInsets.all(8),
+                        tooltipMargin: 8,
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          return BarTooltipItem(
+                            'Rp ${NumberFormat('#,###', 'id_ID').format(rod.toY)}',
+                            GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                          );
+                        },
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() < 0 || value.toInt() >= data.length) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                data[value.toInt()]['label'],
+                                style: GoogleFonts.inter(
+                                  color: context.color.onSurfaceVariant,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          },
+                          reservedSize: 28,
+                        ),
+                      ),
+                      leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      horizontalInterval: maxTotal == 0 ? 100 : (maxTotal / 4),
+                      getDrawingHorizontalLine: (value) => FlLine(
+                        color: context.color.outlineVariant.withValues(alpha: 0.3),
+                        strokeWidth: 1,
+                        dashArray: [4, 4],
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    barGroups: data.asMap().entries.map((e) {
+                      return BarChartGroupData(
+                        x: e.key,
+                        barRods: [
+                          BarChartRodData(
+                            toY: e.value['total'].toDouble(),
+                            color: context.color.primary,
+                            width: 16,
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                            backDrawRodData: BackgroundBarChartRodData(
+                              show: true,
+                              toY: maxTotal,
+                              color: context.color.primary.withValues(alpha: 0.1),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
